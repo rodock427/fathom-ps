@@ -15,7 +15,7 @@ $ErrorActionPreference = 'Stop'
 if ($Task -in 'Lint', 'All') {
     $settings = Join-Path -Path $PSScriptRoot -ChildPath 'PSScriptAnalyzerSettings.psd1'
     # Not .universal/: PSU rewrites those files in its own format whenever the admin console saves.
-    $paths = 'Apps', 'Modules', 'Scripts', 'tests', 'build.ps1', 'PSScriptAnalyzerSettings.psd1' |
+    $paths = 'Apps', 'Modules', 'Scripts', 'tests', 'tools', 'build.ps1', 'PSScriptAnalyzerSettings.psd1' |
         ForEach-Object { Join-Path -Path $PSScriptRoot -ChildPath $_ }
     $findings = $paths | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Recurse -Settings $settings }
     if ($findings) {
