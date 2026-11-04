@@ -1,0 +1,37 @@
+lmutil - Copyright (c) 1989-2023 Flexera. All Rights Reserved.
+Flexible License Manager status on Mon 11/2/2026 14:30
+
+License server status: 27000@licsrv01
+    License file(s) on licsrv01: C:\FlexLM\licenses\adsk.lic:
+
+  licsrv01: license server UP (MASTER) v11.19.4
+
+Vendor daemon status (on licsrv01):
+
+  adskflex: UP v11.19.4
+       mlm: The desired vendor daemon is down. (-97,121)
+
+Feature usage info:
+
+Users of 87545ACD_2026_0F:  (Total of 25 licenses issued;  Total of 4 licenses in use)
+
+  "87545ACD_2026_0F" v1.000, vendor: adskflex, expiry: 31-mar-2027
+  vendor_string: commercial:permanent
+  floating license
+
+    alice WS-01 WS-01 (v1.0) (licsrv01/27000 2101), start Mon 11/2 8:05
+    bob ws-02.corp.local ws-02.corp.local (v1.0) (licsrv01/27000 2202), start Mon 11/2 9:41, 2 licenses
+    carol WS-03 WS-03 (v1.0) (licsrv01/27000 1904), start Fri 10/30 16:12
+
+Users of INVENTOR_PRO:  (Total of 2 licenses issued;  Total of 2 licenses in use)
+
+  "INVENTOR_PRO" v1.000, vendor: adskflex, expiry: permanent
+  floating license
+
+    dave WS-04 WS-04 (v1.0) (licsrv01/27000 3001), start Sun 12/28 23:50
+    éva WS-05 WS-05 (v1.0) (licsrv01/27000 3002), start Mon 11/2 14:02
+
+Users of RVT_2024:  (Total of 5 licenses issued;  Total of 0 licenses in use)
+
+  "RVT_2024" v1.000, vendor: adskflex, expiry: 1-jan-0000
+  floating license

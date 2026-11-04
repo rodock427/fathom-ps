@@ -84,3 +84,52 @@ CREATE TABLE IF NOT EXISTS monitored_servers (
 ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_polled_at TIMESTAMP;
 ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_poll_status TEXT;
 ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_poll_message TEXT;
+
+-- Health of each server's debug log, to spot a share that quietly stopped (fathom-ps only).
+ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_log_read_at TIMESTAMP;
+ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_log_line_at TIMESTAMP;
+ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_log_status TEXT;
+ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_log_error TEXT;
+
+-- Which source drives usage history: the debug log, lmstat, or auto (log while healthy).
+ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS usage_source TEXT NOT NULL DEFAULT 'auto';
+DO $$ BEGIN
+    ALTER TABLE monitored_servers ADD CONSTRAINT monitored_servers_usage_source_check
+        CHECK (usage_source IN ('auto', 'log', 'lmstat'));
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- Every lmstat snapshot, so lmstat-only servers have a usage history too (fathom-ps only).
+CREATE TABLE IF NOT EXISTS usage_samples (
+    server_id TEXT NOT NULL,
+    feature TEXT NOT NULL,
+    captured_at TIMESTAMP NOT NULL,
+    licenses_issued INTEGER NOT NULL,
+    licenses_in_use INTEGER NOT NULL,
+    PRIMARY KEY (server_id, feature, captured_at)
+);
+
+-- Who holds each seat right now, per lmstat; replaced on every poll (fathom-ps only).
+CREATE TABLE IF NOT EXISTS live_sessions (
+    server_id TEXT NOT NULL,
+    feature TEXT NOT NULL,
+    "user" TEXT NOT NULL,
+    host TEXT,
+    display TEXT,
+    version TEXT,
+    handle TEXT,
+    licenses INTEGER NOT NULL DEFAULT 1,
+    started_at TIMESTAMP,
+    captured_at TIMESTAMP NOT NULL
+);
+CREATE INDEX IF NOT EXISTS live_sessions_server ON live_sessions (server_id);
+
+-- Each vendor daemon's state per lmstat; replaced on every poll (fathom-ps only).
+CREATE TABLE IF NOT EXISTS vendor_daemon_status (
+    server_id TEXT NOT NULL,
+    daemon TEXT NOT NULL,
+    up BOOLEAN NOT NULL,
+    detail TEXT,
+    captured_at TIMESTAMP NOT NULL,
+    PRIMARY KEY (server_id, daemon)
+);

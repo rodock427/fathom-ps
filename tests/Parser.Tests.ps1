@@ -73,3 +73,59 @@ Describe 'ConvertFrom-FathomLmstat' {
         $statuses.VendorDaemon | Should -Be @($null, 'mlm')
     }
 }
+
+Describe 'ConvertFrom-FathomLmstat holders and expiry' {
+    BeforeAll {
+        $detail = Get-Content -Raw -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath 'fixtures/lmstat_detail.txt')
+        $statuses = ConvertFrom-FathomLmstat -InputObject $detail -ServerId licsrv01 -CapturedAt '2026-11-02T14:30:00'
+        $acad = $statuses | Where-Object Feature -EQ '87545ACD_2026_0F'
+    }
+
+    It 'lists each holder with host, seats and start time' {
+        $acad.Holders.User | Should -Be @('alice', 'bob', 'carol')
+        $bob = $acad.Holders | Where-Object User -EQ 'bob'
+        $bob.Host | Should -Be 'ws-02.corp.local'
+        $bob.Licenses | Should -Be 2
+        $bob.Handle | Should -Be '2202'
+        $bob.StartedAt | Should -Be ([datetime] '2026-11-02T09:41:00')
+    }
+
+    It 'puts a start date that would be in the future into last year' {
+        $dave = ($statuses | Where-Object Feature -EQ 'INVENTOR_PRO').Holders | Where-Object User -EQ 'dave'
+        $dave.StartedAt | Should -Be ([datetime] '2025-12-28T23:50:00')
+    }
+
+    It 'reads a dated expiry, and both spellings of permanent' {
+        $acad.Expiry | Should -Be ([datetime] '2027-03-31')
+        foreach ($feature in 'INVENTOR_PRO', 'RVT_2024') {
+            $permanent = $statuses | Where-Object Feature -EQ $feature
+            $permanent.Expiry | Should -BeNullOrEmpty -Because "$feature never expires"
+            $permanent.ExpiryReported | Should -BeTrue
+        }
+    }
+
+    It 'marks expiry as unreported when lmstat leaves it out' {
+        $status = "Users of X:  (Total of 1 license issued;  Total of 0 licenses in use)`n  `"X`" v1, vendor: mlm," |
+            ConvertFrom-FathomLmstat -ServerId licsrv01
+        $status.ExpiryReported | Should -BeFalse
+    }
+
+    It 'resolves a Feb 29 start seen in a non-leap year' {
+        InModuleScope Fathom {
+            Resolve-FathomLmstatStart -Month 2 -Day 29 -Hour 9 -Minute 0 -CapturedAt '2029-03-01T10:00:00'
+        } | Should -Be ([datetime] '2028-02-29T09:00:00')
+    }
+}
+
+Describe 'Get-FathomLmstatHealth' {
+    It 'reads lmgrd and each vendor daemon' {
+        $detail = Get-Content -Raw -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath 'fixtures/lmstat_detail.txt')
+        $health = InModuleScope Fathom -Parameters @{ Output = $detail } { param($Output) Get-FathomLmstatHealth -Output $Output }
+
+        $health.ServerUp | Should -BeTrue
+        $health.Daemons.Name | Should -Be @('adskflex', 'mlm')
+        $health.Daemons.Up | Should -Be @($true, $false)
+        $health.Daemons[0].Detail | Should -Be 'UP v11.19.4'
+        $health.Daemons[1].Detail | Should -BeLike 'The desired vendor daemon is down*'
+    }
+}

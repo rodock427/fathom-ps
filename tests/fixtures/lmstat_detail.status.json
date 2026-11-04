@@ -1,0 +1,26 @@
+[
+ {
+  "server_id": "parity",
+  "feature": "87545ACD_2026_0F",
+  "licenses_issued": 25,
+  "licenses_in_use": 4,
+  "vendor_daemon": "adskflex",
+  "captured_at": "2026-08-20T12:00:00"
+ },
+ {
+  "server_id": "parity",
+  "feature": "INVENTOR_PRO",
+  "licenses_issued": 2,
+  "licenses_in_use": 2,
+  "vendor_daemon": "adskflex",
+  "captured_at": "2026-08-20T12:00:00"
+ },
+ {
+  "server_id": "parity",
+  "feature": "RVT_2024",
+  "licenses_issued": 5,
+  "licenses_in_use": 0,
+  "vendor_daemon": "adskflex",
+  "captured_at": "2026-08-20T12:00:00"
+ }
+]

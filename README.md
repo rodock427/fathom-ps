@@ -28,7 +28,7 @@ The repo root **is** the PSU repository (what PSU's Git sync points at).
 | Fathom: read debug logs | `Scripts/Sync-DebugLogs.ps1` | every minute |
 | Fathom: poll lmstat | `Scripts/Sync-LiveStatus.ps1` | every 5 minutes |
 
-`Scripts/Initialize-Database.ps1` isn't scheduled: run it once after installing or updating.
+`Scripts/Initialize-Database.ps1` isn't scheduled: run it once after installing **and after every update**. Until it runs, jobs that need new columns fail (and recover by themselves once it has).
 
 Setup on the PSU server:
 
@@ -82,11 +82,14 @@ Initialize-FathomSchema
 Register-FathomServer -ServerId licsrv01 -LicenseSpec 27000@licsrv01 -LogPath '\\licsrv01\flexlm$\debug.log'
 Get-FathomServer -Enabled | Sync-FathomDebugLog
 
+# Change settings, e.g. drive usage history from lmstat while a log share is out
+Set-FathomServer -ServerId licsrv01 -UsageSource Lmstat
+
 # Lower level: parse lines yourself. Keep the context's CurrentDate and LineNumber to resume later.
 $context = New-FathomParserContext -ServerId licsrv01 -SourceFile '\\licsrv01\flexlm$\debug.log'
 [System.IO.File]::ReadLines($context.SourceFile) | ConvertFrom-FathomDebugLog -Context $context
 
-# Poll lmstat: live usage, seat limits, up/down (also safe to schedule)
+# Poll lmstat: live usage, history, holders, seats, expiry, daemon health (also safe to schedule)
 Get-FathomServer -Enabled | Sync-FathomLiveStatus -LmutilPath 'C:\FlexLM\lmutil.exe'
 
 # Lower level: parse lmstat output yourself
