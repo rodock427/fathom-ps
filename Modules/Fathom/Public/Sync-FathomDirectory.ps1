@@ -2,6 +2,7 @@ function Sync-FathomDirectory {
     <#
     .SYNOPSIS
         Looks up the users and hosts Fathom has seen in Active Directory, recording the chosen attributes.
+        A username matches either logon name: pre-Windows 2000 (sAMAccountName) or userPrincipalName.
     .DESCRIPTION
         Meant for a schedule. Does nothing while directory lookups are off (the default). Each run
         takes the names not yet looked up, or not refreshed in RefreshHours, up to -Limit. Every
@@ -111,6 +112,17 @@ ON CONFLICT (kind, name) DO UPDATE SET found = EXCLUDED.found, attributes = EXCL
             # anything else (no domain controller, no access) stops the run to be retried.
             if ($_.CategoryInfo.Category -ne 'ObjectNotFound') { throw }
             $object = $null
+        }
+        # A FlexLM username is either logon name: the pre-Windows 2000 one (sAMAccountName, tried
+        # above) or the user logon name (userPrincipalName), with or without its @domain.
+        if (-not $object -and $entry.kind -eq 'user') {
+            $value = $entry.name -replace "'", "''"
+            $filter = if ($entry.name.Contains('@')) { "UserPrincipalName -eq '$value'" } else { "UserPrincipalName -like '$value@*'" }
+            $matched = @(Get-ADUser -Filter $filter @lookup)
+            # Two people with that name under different domains: not a match.
+            if ($matched.Count -eq 1) {
+                $object = $matched[0]
+            }
         }
 
         $values = [ordered] @{}

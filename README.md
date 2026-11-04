@@ -139,6 +139,11 @@ Every hour Fathom looks up each FlexLM username and host it has seen (live, in t
 or in the last 90 days of log events) with `Get-ADUser` / `Get-ADComputer -Properties *`, and again
 every `RefreshHours` (24).
 
+A FlexLM username can be either of a user's logon names: the pre-Windows 2000 one
+(`sAMAccountName`, `dave`) or the user logon name (`userPrincipalName`, `dave.diaz` or
+`dave.diaz@corp.example`). Fathom tries the first, then the second. If a name without its domain
+matches people in two domains, it's left unmatched rather than guessed.
+
 - **Every attribute** the directory returns is listed in Administration, except binary ones such
   as photos. The list holds names only, never values.
 - **Recorded** attributes have their values stored. Display name, department, title, email, manager

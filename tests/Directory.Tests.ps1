@@ -166,9 +166,11 @@ INSERT INTO live_sessions (server_id, feature, "user", host, captured_at) VALUES
         $null = Invoke-SqlUpdate -Query "UPDATE ad_history SET changed_at = changed_at - interval '1 day'"
 
         Mock -CommandName Get-ADUser -ModuleName Fathom -MockWith {
-            $user = ActiveDirectory\Get-ADUser -Identity $Identity -Properties *
-            if ($user.SamAccountName -eq 'dave') { $user.Department = 'Quality' }
-            $user
+            $users = if ($Filter) { ActiveDirectory\Get-ADUser -Filter $Filter } else { ActiveDirectory\Get-ADUser -Identity $Identity }
+            foreach ($user in $users) {
+                if ($user.SamAccountName -eq 'dave') { $user.Department = 'Quality' }
+                $user
+            }
         }
         $null = Invoke-SqlUpdate -Query "UPDATE ad_objects SET fetched_at = '-infinity'"
         $null = Sync-FathomDirectory
@@ -192,6 +194,22 @@ INSERT INTO live_sessions (server_id, feature, "user", host, captured_at) VALUES
         (Find-FathomUser -Text 'Diaz').User | Should -Contain 'Dave'
         $null = Set-FathomDirectoryAttribute -Kind user -Name DisplayName -Shown $false
         (Find-FathomUser -Text 'Diaz') | Should -BeNullOrEmpty -Because 'a hidden display name is not searched'
+    }
+
+    It 'matches a username to either logon name: pre-Windows 2000 or userPrincipalName' {
+        $seed = @'
+INSERT INTO live_sessions (server_id, feature, "user", host, captured_at) VALUES
+('licsrv01', 'MATLAB', 'alice.archer', 'WS-01', now()),
+('licsrv01', 'MATLAB', 'carol.chen@corp.local', 'WS-03', now()),
+('licsrv01', 'MATLAB', 'johnny.bravo', 'WS-10', now())
+'@
+        $null = Invoke-SqlUpdate -Query $seed
+        $null = Sync-FathomDirectory
+
+        (Get-FathomDirectoryObject -Kind user -Name 'Dave').Attributes.DisplayName | Should -Be 'Dave Diaz' -Because 'pre-Windows 2000 name'
+        (Get-FathomDirectoryObject -Kind user -Name 'alice.archer').Attributes.DisplayName | Should -Be 'Alice Archer' -Because 'the user logon name, without its domain'
+        (Get-FathomDirectoryObject -Kind user -Name 'carol.chen@corp.local').Attributes.DisplayName | Should -Be 'Carol Chen' -Because 'the full user logon name'
+        (Get-FathomDirectoryObject -Kind user -Name 'johnny.bravo').Found | Should -BeFalse -Because 'two people share that name in different domains'
     }
 
     It 'stops the run when the directory itself fails' {
