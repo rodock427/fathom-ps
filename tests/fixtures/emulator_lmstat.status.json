@@ -1,0 +1,26 @@
+[
+ {
+  "server_id": "parity",
+  "feature": "MATLAB",
+  "licenses_issued": 10,
+  "licenses_in_use": 31,
+  "vendor_daemon": "mlm",
+  "captured_at": "2026-08-20T12:00:00"
+ },
+ {
+  "server_id": "parity",
+  "feature": "SIMULINK",
+  "licenses_issued": 5,
+  "licenses_in_use": 38,
+  "vendor_daemon": "mlm",
+  "captured_at": "2026-08-20T12:00:00"
+ },
+ {
+  "server_id": "parity",
+  "feature": "MATLAB_Distrib_Comp_Engine",
+  "licenses_issued": 32,
+  "licenses_in_use": 35,
+  "vendor_daemon": "mlm",
+  "captured_at": "2026-08-20T12:00:00"
+ }
+]

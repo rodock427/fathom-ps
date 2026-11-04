@@ -32,10 +32,26 @@ export FATHOM_TEST_DSN=postgresql://license_manager:license_manager@localhost:54
 
 Without `FATHOM_TEST_DSN`, the database tests are skipped.
 
+### Parity with Python Fathom
+
+`tests/Parity.Tests.ps1` checks the parsers against golden files produced by Fathom's own
+Python parsers. Regenerate them after changing a fixture (needs `../license_manager` with its `.venv`):
+
+```bash
+../license_manager/.venv/bin/python tests/fixtures/generate_golden.py
+```
+
 ## Use
 
 ```powershell
 Import-Module ./Fathom/Fathom.psd1
 Connect-FathomDatabase          # reads LM_POSTGRES_DSN, the same variable Fathom uses
 Initialize-FathomSchema
+
+# Parse a debug log. Keep the context's CurrentDate and LineNumber to resume later.
+$context = New-FathomParserContext -ServerId licsrv01 -SourceFile '\\licsrv01\flexlm$\debug.log'
+[System.IO.File]::ReadLines($context.SourceFile) | ConvertFrom-FathomDebugLog -Context $context
+
+# Live usage snapshot
+& lmutil lmstat -a -c 27000@licsrv01 | ConvertFrom-FathomLmstat -ServerId licsrv01
 ```

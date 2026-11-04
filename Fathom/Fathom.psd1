@@ -8,8 +8,11 @@
     RequiredModules   = @(@{ ModuleName = 'SimplySql'; ModuleVersion = '2.2.0' })
     FunctionsToExport = @(
         'Connect-FathomDatabase'
+        'ConvertFrom-FathomDebugLog'
+        'ConvertFrom-FathomLmstat'
         'Disconnect-FathomDatabase'
         'Initialize-FathomSchema'
+        'New-FathomParserContext'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()
