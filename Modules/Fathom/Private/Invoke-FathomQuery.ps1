@@ -19,7 +19,7 @@ function Invoke-FathomQuery {
             while ($reader.Read()) {
                 $record = [ordered] @{}
                 for ($i = 0; $i -lt $columns.Count; $i++) {
-                    $record[$columns[$i]] = if ($reader.IsDBNull($i)) { $null } else { $reader.GetValue($i) }
+                    $record[$columns[$i]] = ConvertFrom-FathomDbValue -Value $reader.GetValue($i)
                 }
                 [pscustomobject] $record
             }

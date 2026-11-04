@@ -61,6 +61,23 @@ Describe 'Connect-FathomDatabase' {
     }
 }
 
+Describe 'Values read from Postgres' {
+    It 'turns a date into a DateTime, whichever way Npgsql was configured' {
+        InModuleScope Fathom {
+            $date = ConvertFrom-FathomDbValue -Value ([DateOnly]::new(2027, 3, 31))
+            $date | Should -BeOfType [datetime]
+            ($date - [datetime] '2027-03-01').TotalDays | Should -Be 30
+        }
+    }
+
+    It 'turns NULL into $null and keeps an array an array' {
+        InModuleScope Fathom {
+            ConvertFrom-FathomDbValue -Value ([DBNull]::Value) | Should -BeNullOrEmpty
+            , (ConvertFrom-FathomDbValue -Value ([string[]] @('one'))) | Should -BeOfType [string[]]
+        }
+    }
+}
+
 Describe 'Database errors' -Skip:(-not $env:FATHOM_TEST_DSN) {
     It 'stop the caller even when its ErrorAction is Continue' {
         $ErrorActionPreference = 'Continue'
