@@ -123,3 +123,62 @@ function New-FathomNotAuthorized {
     #>
     New-UDAlert -Id 'not-authorized' -Severity info -Text 'You do not have access to this page. Ask a license administrator.'
 }
+
+function Format-FathomDirectoryValue {
+    <#
+    .SYNOPSIS
+        A directory attribute value as one line of text: a distinguished name as its name, a list joined.
+    #>
+    param([AllowNull()] $Value)
+
+    $parts = foreach ($item in @($Value)) {
+        if ($item -is [datetime]) {
+            Format-FathomTime $item
+        } elseif ($item -is [string] -and $item -match '^CN=((?:\\,|[^,])+),') {
+            $Matches[1] -replace '\\,', ','
+        } else {
+            [string] $item
+        }
+    }
+    $parts -join '; '
+}
+
+function Add-FathomDirectoryColumn {
+    <#
+    .SYNOPSIS
+        Adds the shown directory attributes of each row's user and host as extra properties and columns.
+    .DESCRIPTION
+        Rows need User and Host properties. Columns is changed in place. Individual data: call it
+        only on pages for the Operator tier.
+    #>
+    param(
+        [AllowNull()] [object[]] $Rows,
+        [Parameter(Mandatory)] [System.Collections.Specialized.OrderedDictionary] $Columns
+    )
+
+    if (-not $Rows) {
+        return $Rows
+    }
+    foreach ($kind in 'user', 'computer') {
+        $source = if ($kind -eq 'user') { 'User' } else { 'Host' }
+        $objects = @{}
+        Get-FathomDirectoryObject -Kind $kind -Name @($Rows.$source) | ForEach-Object { $objects[$_.Name] = $_.Attributes }
+        $attributes = @(Get-FathomDirectoryAttribute -Kind $kind | Where-Object Shown).Name
+        $index = 0
+        foreach ($attribute in $attributes) {
+            # Plain property names: PSU puts them in the page as JSON field names.
+            $property = "${kind}Attribute$index"
+            $Columns[$property] = if ($kind -eq 'user') { $attribute } else { "Host $attribute" }
+            foreach ($row in $Rows) {
+                # Keyed as the directory tables key names: lower case, a host without its domain.
+                $key = ([string] $row.$source).ToLowerInvariant()
+                if ($kind -eq 'computer') { $key = $key.Split('.')[0] }
+                $values = $objects[$key]
+                $text = if ($values -and $values.Contains($attribute)) { Format-FathomDirectoryValue $values[$attribute] }
+                $row | Add-Member -NotePropertyName $property -NotePropertyValue $text
+            }
+            $index++
+        }
+    }
+    $Rows
+}

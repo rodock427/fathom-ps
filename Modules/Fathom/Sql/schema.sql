@@ -205,3 +205,38 @@ CREATE TABLE IF NOT EXISTS alert_state (
 );
 -- When the condition itself began (e.g. the first failed poll), if the rule knows.
 ALTER TABLE alert_state ADD COLUMN IF NOT EXISTS condition_since TIMESTAMP;
+
+-- Active Directory details behind FlexLM usernames and hosts (fathom-ps only; Python Fathom's
+-- user_directory / directory_attributes are a different model and are left alone).
+-- Only attributes marked recorded are stored; name is lower case (a host without its domain).
+CREATE TABLE IF NOT EXISTS ad_objects (
+    kind TEXT NOT NULL CHECK (kind IN ('user', 'computer')),
+    name TEXT NOT NULL,
+    found BOOLEAN NOT NULL,
+    attributes JSONB NOT NULL DEFAULT '{}',
+    fetched_at TIMESTAMP NOT NULL,
+    PRIMARY KEY (kind, name)
+);
+
+-- Every attribute name the directory has returned, and whether its values are recorded and
+-- shown. Names only: no values are kept here.
+CREATE TABLE IF NOT EXISTS ad_attributes (
+    kind TEXT NOT NULL CHECK (kind IN ('user', 'computer')),
+    name TEXT NOT NULL,
+    recorded BOOLEAN NOT NULL DEFAULT FALSE,
+    shown BOOLEAN NOT NULL DEFAULT FALSE,
+    first_seen_at TIMESTAMP NOT NULL,
+    PRIMARY KEY (kind, name),
+    CHECK (recorded OR NOT shown)
+);
+
+-- Directory lookups: one row, off by default.
+CREATE TABLE IF NOT EXISTS ad_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    -- A domain controller or domain to ask; the PSU server's own domain when empty.
+    server TEXT,
+    refresh_hours INTEGER NOT NULL DEFAULT 24,
+    updated_at TIMESTAMP
+);
+INSERT INTO ad_settings (id) VALUES (1) ON CONFLICT DO NOTHING;

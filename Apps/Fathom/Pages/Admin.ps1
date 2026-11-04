@@ -145,4 +145,63 @@ Use-FathomDatabase {
             Show-UDToast -Message 'Test message sent.'
         }
     }
+    $directory = Get-FathomDirectorySetting
+    New-UDCard -Title 'Active Directory' -Content {
+        New-UDTypography -Variant body2 -Text (
+            'Looks up each FlexLM user and host in Active Directory every hour. Every attribute it returns is listed ' +
+            'below: only recorded ones are stored, and shown ones appear to license administrators and managers ' +
+            '(People page). Turning recording off deletes that attribute''s stored values.')
+        New-UDForm -Id 'admin-directory' -SubmitText 'Save' -Children {
+            New-UDSwitch -Id 'directoryEnabled' -Label 'Look up users and hosts' -Checked $directory.Enabled
+            New-UDTextbox -Id 'directoryServer' -Label 'Domain controller or domain (blank for this server''s own)' -Value $directory.Server
+            New-UDTextbox -Id 'directoryRefreshHours' -Label 'Look each one up again after (hours)' -Type number -Value $directory.RefreshHours
+        } -OnSubmit {
+            if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { throw 'Not authorized.' }
+            $change = @{
+                Enabled      = [bool] $EventData.directoryEnabled
+                Server       = [string] $EventData.directoryServer
+                RefreshHours = [int] $EventData.directoryRefreshHours
+            }
+            $null = Use-FathomDatabase { Set-FathomDirectorySetting @change }
+            Show-UDToast -Message 'Directory settings saved.'
+        }
+        New-UDButton -Text 'Look up now' -Variant outlined -ShowLoading -OnClick {
+            if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { throw 'Not authorized.' }
+            # The same optional login the hourly lookup uses.
+            $result = Use-FathomDatabase { Sync-FathomDirectory -Credential $FathomDirectoryCredential }
+            Show-UDToast -Message "Looked up $($result.Looked): $($result.Found) found, $($result.NotFound) not in the directory, $($result.NewAttributes) new attribute(s)."
+            Sync-UDElement -Id 'admin-directory-attributes'
+        }
+
+        # Its own region, so a switch refreshes the list (showing records, unrecording hides) in
+        # place. It runs on its own request, without this page's helpers: load them again.
+        $common = "$PSScriptRoot/../Common.ps1"
+        New-UDDynamic -Id 'admin-directory-attributes' -Content {
+            if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { return }
+            . $common
+            $rows = Use-FathomDatabase { Get-FathomDirectoryAttribute } | ForEach-Object {
+                [pscustomobject] @{ Kind = $_.Kind; Name = $_.Name; Recorded = $_.Recorded; Shown = $_.Shown }
+            }
+            # Runs in PSU's scope (see New-FathomTable): the handlers use only the row and Fathom commands.
+            $table = @{
+                Id      = 'admin-directory-attribute-table'
+                Data    = $rows
+                Columns = [ordered] @{ Name = 'Attribute'; Kind = 'Of'; Recorded = 'Recorded'; Shown = 'Shown' }
+                Render  = @{
+                    Recorded = { $attribute = $EventData; New-UDSwitch -Checked $attribute.Recorded -OnChange {
+                            if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { throw 'Not authorized.' }
+                            $null = Use-FathomDatabase { Set-FathomDirectoryAttribute -Kind $attribute.Kind -Name $attribute.Name -Recorded ($EventData -in $true, 'true') }
+                            Sync-UDElement -Id 'admin-directory-attributes'
+                        } }
+                    Shown    = { $attribute = $EventData; New-UDSwitch -Checked $attribute.Shown -OnChange {
+                            if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { throw 'Not authorized.' }
+                            $null = Use-FathomDatabase { Set-FathomDirectoryAttribute -Kind $attribute.Kind -Name $attribute.Name -Shown ($EventData -in $true, 'true') }
+                            Sync-UDElement -Id 'admin-directory-attributes'
+                        } }
+                }
+                Empty   = 'No attributes yet: turn lookups on, save, then Look up now.'
+            }
+            New-FathomTable @table
+        }
+    }
 }
