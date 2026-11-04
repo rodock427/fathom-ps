@@ -37,7 +37,9 @@
             Enable         = $true
             CheckHashtable = $true
         }
-        PSUseCorrectCasing         = @{ Enable = $true }
+        # Off: in PSScriptAnalyzer 1.25 this rule intermittently crashes a fresh process
+        # ("Get-Command is not recognized" / NullReferenceException). Re-enable on upgrade.
+        PSUseCorrectCasing         = @{ Enable = $false }
 
         # Every exported command carries help.
         PSProvideCommentHelp       = @{

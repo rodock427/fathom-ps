@@ -11,8 +11,12 @@
         'ConvertFrom-FathomDebugLog'
         'ConvertFrom-FathomLmstat'
         'Disconnect-FathomDatabase'
+        'Get-FathomServer'
         'Initialize-FathomSchema'
         'New-FathomParserContext'
+        'Register-FathomServer'
+        'Sync-FathomDebugLog'
+        'Unregister-FathomServer'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()

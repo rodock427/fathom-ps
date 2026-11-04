@@ -11,7 +11,7 @@ BeforeAll {
 Describe 'Initialize-FathomSchema' -Skip:(-not $env:FATHOM_TEST_DSN) {
     BeforeAll {
         Connect-FathomDatabase -Dsn $env:FATHOM_TEST_DSN
-        Invoke-SqlUpdate -ConnectionName Fathom -Query 'DROP TABLE IF EXISTS license_events, live_status, feature_inventory'
+        Invoke-SqlUpdate -ConnectionName Fathom -Query 'DROP TABLE IF EXISTS license_events, live_status, feature_inventory, _ingest_manifest, monitored_servers'
         Initialize-FathomSchema
     }
 
@@ -40,6 +40,11 @@ Describe 'Initialize-FathomSchema' -Skip:(-not $env:FATHOM_TEST_DSN) {
             Table   = 'feature_inventory'
             Columns = 'server_id', 'feature', 'vendor_daemon', 'version', 'licenses_issued',
             'expiration', 'cost', 'updated_at', 'token_family'
+        }
+        @{
+            Table   = '_ingest_manifest'
+            Columns = 'file_key', 'last_known_path', 'server_id', 'resume_offset', 'line_number',
+            'resolved_date', 'last_batch_id', 'last_ingested_at', 'total_events_written'
         }
     ) {
         Get-TableColumn -Table $Table | Should -Be $Columns
