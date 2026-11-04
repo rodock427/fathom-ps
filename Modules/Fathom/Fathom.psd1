@@ -15,6 +15,7 @@
         'Initialize-FathomSchema'
         'New-FathomParserContext'
         'Register-FathomServer'
+        'Set-FathomServer'
         'Sync-FathomDebugLog'
         'Sync-FathomLiveStatus'
         'Unregister-FathomServer'

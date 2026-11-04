@@ -38,16 +38,60 @@ fathom-ps/
 | 2 | **Parsers**: FlexLM debug log (with running-date handling) and `lmstat -a` | Parity: Fathom's fixtures produce the same events as the Python parser |
 | 3 | **Ingest core**: register monitored servers (`port@host`, log path), track the read position per log (handling rotation and truncation), write `license_events` deduplicated by a deterministic event id | Re-reading a log writes nothing new; a rotated log restarts cleanly |
 | 4 | **Collection**: PSU schedules for the log read and the `lmstat` poll, recording live status, seat limits and server up/down | Fixture-driven tests pass; the real `lmutil` and UNC calls are thin, reviewed shims |
-| 5 | **Monitoring queries**: live status, usage vs limit over time, denials, server health and last read | Parity with Fathom's `lm_reporting` on seeded data |
-| 6 | **UI**: **stop here and present the options** before building anything | You pick |
+| 5 | **Fuller `lmstat` capture**: usage history (every snapshot), current holders, expiry dates, vendor daemon status, data freshness; `Set-FathomServer` | An lmstat-only server has a usage history; a holder's session start and a feature's expiry are stored |
+| 6 | **Queries** behind the screens below | Parity with Fathom's `lm_reporting` where they overlap (peak concurrency, denial rate) |
+| 7 | **Alerts**: rules + notifier, **shipped switched off** | Each rule fires on seeded data; nothing is sent until enabled |
+| 8 | **UI**: a PSU App, three role tiers | Each role sees exactly its tier |
 
 In dev, log paths are local fixture files. The UNC path is the same code, just a different path.
+
+## What V1 tracks, and why
+
+| Audience | Their question | Answered by |
+|---|---|---|
+| Everyone | Is a seat free right now? | Free seats per feature (lmstat) |
+| License admins | Is it up? Who holds the seat? Anything expiring? Is monitoring still working? | Server + vendor daemon health, current holders and since when, expiry, freshness |
+| Managers / procurement | Too many seats or too few, for the renewal? | Peak and typical (95th percentile) concurrency vs seats over months, time at capacity, denials (unmet demand), monthly active users, unused features |
+
+Sources: **lmstat** (every server) gives availability, holders, expiry, daemon status and the usage history.
+**Debug logs** (where the share is reachable) add denials, queueing and exact session lengths.
+An lmstat-only server shows capacity but not unmet demand.
+
+**Usage source, per server:** `Auto` (default), `Log` or `Lmstat`. `Auto` uses the debug log while it's
+healthy and falls back to the lmstat history when it isn't (share unreachable, or no new lines while
+lmstat shows seats in use). Log health is recorded on every read to make that call.
+
+Deliberately not tracked: per-host breakdowns, feature versions, borrowed licenses.
+Retention: keep everything (multi-year trends drive renewals; the volume is small).
+
+## Screens and access
+
+Totals are for everyone. Anything about an individual is for license admins and managers.
+
+| Screen | Reader (everyone) | Operator (license admins, managers) | Administrator |
+|---|---|---|---|
+| **Overview** | Free seats per feature, server/daemon health, freshness, expiring soon | + denials last 24 h | same |
+| **Server detail** | Usage over time vs seats, per feature | + current holders, denials, recent activity | same |
+| **Capacity & renewal** | | Peak / 95th percentile vs seats, time at capacity, denials and distinct users denied, monthly active users, underused features | same |
+| **People** | | Current holders with session length (flags long ones), user lookup | same |
+| **Admin** | | | Add / edit / disable servers, poll now, alert settings |
+
+Roles map to PSU's built-in Reader, Operator and Administrator.
+
+## Alerts (built in, off by default)
+
+Rules: server or vendor daemon down, a feature at full capacity for a while, a license expiring within 30 days, data gone stale.
+The alert schedule ships **paused** and a setting gates sending, so it can be switched on later without a deploy.
+Channel (email or a Teams workflow webhook) is decided in phase 7.
 
 ## Later (not V1)
 
 - **Devolutions Agent fallback** for hosts PSU can't reach over SMB (DMZ, other domains). PSU's own agent, which needs PSU 2026.3 and **one PSU license per computer**.
 - **Ansible provisioning**: install PSU on Windows Server, put `lmutil` on it, and set up the service account and share permissions on license hosts. Code deploys via PSU Git sync, not Ansible.
 - Fathom push-ingest API compatibility, only if existing `Send-FathomLogs.ps1` installs need it.
+- **Grafana office-TV dashboard**, reading Postgres directly through a read-only database user.
+- **Department / manager scoping** and "my own usage": needs a user directory (AD, Microsoft Graph or LDAP).
+- **Monthly renewal report** as an Excel export (ImportExcel).
 
 ## Production prerequisites
 

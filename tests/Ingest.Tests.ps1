@@ -79,6 +79,38 @@ Describe 'Monitored servers and log sync' -Skip:(-not $env:FATHOM_TEST_DSN) {
         }
     }
 
+    Context 'Set-FathomServer' {
+        BeforeEach {
+            $null = Register-FathomServer -ServerId licsrv01 -LicenseSpec 27000@licsrv01 -LogPath '/logs/debug.log'
+        }
+
+        It 'changes only what is passed' {
+            $server = Set-FathomServer -ServerId licsrv01 -UsageSource Lmstat -Enabled $false
+
+            $server.UsageSource | Should -Be 'lmstat'
+            $server.Enabled | Should -BeFalse
+            $server.LicenseSpec | Should -Be '27000@licsrv01'
+            Get-FathomServer -Enabled | Should -BeNullOrEmpty
+        }
+
+        It 'stops using a source when given an empty value' {
+            (Set-FathomServer -ServerId licsrv01 -LogPath '').LogPath | Should -BeNullOrEmpty
+        }
+
+        It 'refuses to clear both sources' {
+            { Set-FathomServer -ServerId licsrv01 -LicenseSpec '' -LogPath '' } | Should -Throw '*license spec or a log path*'
+        }
+
+        It 'refuses an unknown server, or nothing to change' {
+            { Set-FathomServer -ServerId nope -Name x } | Should -Throw "*isn't registered*"
+            { Set-FathomServer -ServerId licsrv01 } | Should -Throw '*Nothing to change*'
+        }
+
+        It 'defaults new servers to the auto usage source' {
+            (Get-FathomServer -ServerId licsrv01).UsageSource | Should -Be 'auto'
+        }
+    }
+
     Context 'Sync-FathomDebugLog' {
         It 'reads a whole log, then nothing on the next run' {
             $path = Register-TestServer licsrv01
@@ -176,6 +208,27 @@ Describe 'Monitored servers and log sync' -Skip:(-not $env:FATHOM_TEST_DSN) {
             $failures | Should -HaveCount 1
             $failures[0].TargetObject | Should -Be 'aaa-missing'
             $results.ServerId | Should -Be 'zzz-present'
+        }
+
+        It 'records the log''s health on every read' {
+            $path = Register-TestServer licsrv01
+            Write-TestLog $path $fixture[0..9]
+
+            $null = Get-FathomServer | Sync-FathomDebugLog
+            $afterRead = Get-FathomServer -ServerId licsrv01
+            $null = Get-FathomServer | Sync-FathomDebugLog
+            $afterIdle = Get-FathomServer -ServerId licsrv01
+            Remove-Item -Path $path
+            $null = Get-FathomServer | Sync-FathomDebugLog -ErrorAction SilentlyContinue
+            $afterLoss = Get-FathomServer -ServerId licsrv01
+
+            $afterRead.LogStatus | Should -Be 'Synced'
+            $afterRead.LastLogLine | Should -Not -BeNullOrEmpty
+            $afterIdle.LogStatus | Should -Be 'UpToDate'
+            $afterIdle.LastLogLine | Should -Be $afterRead.LastLogLine -Because 'no new lines arrived'
+            $afterLoss.LogStatus | Should -Be 'Unreachable'
+            $afterLoss.LogError | Should -BeLike "can't find or reach*"
+            $afterLoss.LastLogLine | Should -Be $afterRead.LastLogLine
         }
 
         It 'skips servers monitored by lmstat only' {
