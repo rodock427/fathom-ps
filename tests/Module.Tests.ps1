@@ -66,10 +66,34 @@ Describe 'Database errors' -Skip:(-not $env:FATHOM_TEST_DSN) {
         $ErrorActionPreference = 'Continue'
         Connect-FathomDatabase -Dsn $env:FATHOM_TEST_DSN
         try {
-            { InModuleScope Fathom { Invoke-SqlUpdate -ConnectionName Fathom -Query 'SELECT * FROM no_such_table' } } |
+            { InModuleScope Fathom { Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query 'SELECT * FROM no_such_table' } } |
                 Should -Throw '*no_such_table*'
         } finally {
             Disconnect-FathomDatabase
         }
     }
 }
+
+Describe 'Concurrent jobs in one process' -Skip:(-not $env:FATHOM_TEST_DSN) {
+    It 'keep separate connections, as PSU''s in-process jobs need' {
+        # Thread jobs share one process, like PSU's integrated environment: SimplySql's
+        # connection registry is shared, so a fixed connection name would collide.
+        $manifest = Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1'
+        $dsn = $env:FATHOM_TEST_DSN
+        $jobs = 1..6 | ForEach-Object {
+            Start-ThreadJob -ScriptBlock {
+                $ErrorActionPreference = 'Stop'
+                Import-Module $using:manifest
+                Connect-FathomDatabase -Dsn $using:dsn
+                try {
+                    @(Get-FathomServer).Count
+                } finally {
+                    Disconnect-FathomDatabase
+                }
+            }
+        }
+
+        { $jobs | Receive-Job -Wait -AutoRemoveJob -ErrorAction Stop } | Should -Not -Throw
+    }
+}
+

@@ -1,5 +1,7 @@
-# SimplySql tracks connections by name; every Fathom command uses this one.
-$script:ConnectionName = 'Fathom'
+# SimplySql keeps named connections in one registry per process, and PSU runs concurrent jobs
+# in one process. A name per module import (one per job) stops two jobs from opening, sharing or
+# closing each other's connection.
+$script:ConnectionName = "Fathom-$([guid]::NewGuid().ToString('N'))"
 $script:SqlPath = Join-Path -Path $PSScriptRoot -ChildPath 'Sql'
 
 # SimplySql reports a failed statement as a non-terminating error, so a failed write would

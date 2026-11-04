@@ -5,6 +5,8 @@ param()
 
 BeforeAll {
     Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
+    # The module names its connection per import; send the tests' own SQL calls there too.
+    $PSDefaultParameterValues['*-Sql*:ConnectionName'] = InModuleScope Fathom { $script:ConnectionName }
     $fakeLmutil = Join-Path -Path $PSScriptRoot -ChildPath 'fakes/lmutil'
 
     # The fake answers per host from $TestDrive/<host>.txt, and fails for unknown hosts.
@@ -16,7 +18,7 @@ BeforeAll {
         Set-Content -Path "$TestDrive/noexpiry.txt"
 
     function Get-Row([string] $Query) {
-        Invoke-SqlQuery -ConnectionName Fathom -Query $Query -WarningAction SilentlyContinue
+        Invoke-SqlQuery -Query $Query -WarningAction SilentlyContinue
     }
 }
 
@@ -32,7 +34,7 @@ Describe 'Sync-FathomLiveStatus' -Skip:(-not $env:FATHOM_TEST_DSN -or $IsWindows
     }
 
     BeforeEach {
-        $null = Invoke-SqlUpdate -ConnectionName Fathom -Query 'TRUNCATE live_status, feature_inventory, monitored_servers, usage_samples, live_sessions, vendor_daemon_status, observed_sessions, poll_history'
+        $null = Invoke-SqlUpdate -Query 'TRUNCATE live_status, feature_inventory, monitored_servers, usage_samples, live_sessions, vendor_daemon_status, observed_sessions, poll_history'
     }
 
     It 'records live usage and seat limits for a server that is up' {
@@ -56,7 +58,7 @@ Describe 'Sync-FathomLiveStatus' -Skip:(-not $env:FATHOM_TEST_DSN -or $IsWindows
 INSERT INTO feature_inventory (server_id, feature, vendor_daemon, version, licenses_issued, expiration, cost, token_family, updated_at)
 VALUES ('licsrv01', 'MATLAB', 'mlm', 'v2025.0100', 4, '2027-01-31', 1200, 'flex', now())
 '@
-        $null = Invoke-SqlUpdate -ConnectionName Fathom -Query $seed
+        $null = Invoke-SqlUpdate -Query $seed
 
         $null = Get-FathomServer | Sync-FathomLiveStatus -LmutilPath $fakeLmutil
 
@@ -73,7 +75,7 @@ VALUES ('licsrv01', 'MATLAB', 'mlm', 'v2025.0100', 4, '2027-01-31', 1200, 'flex'
 INSERT INTO feature_inventory (server_id, feature, licenses_issued, expiration)
 VALUES ('licsrv01', 'INVENTOR_PRO', 2, '2026-12-31'), ('licsrv01', 'MATLAB', 10, '2027-06-30')
 '@
-        $null = Invoke-SqlUpdate -ConnectionName Fathom -Query $seed
+        $null = Invoke-SqlUpdate -Query $seed
 
         $null = Get-FathomServer | Sync-FathomLiveStatus -LmutilPath $fakeLmutil
         $null = Set-FathomServer -ServerId licsrv01 -LicenseSpec 27000@noexpiry
@@ -102,7 +104,7 @@ VALUES ('licsrv01', 'INVENTOR_PRO', 2, '2026-12-31'), ('licsrv01', 'MATLAB', 10,
         Start-Sleep -Seconds 1  # samples are keyed by the second
         $null = Get-FathomServer | Sync-FathomLiveStatus -LmutilPath $fakeLmutil
 
-        Invoke-SqlScalar -ConnectionName Fathom -Query 'SELECT count(*) FROM usage_samples' | Should -Be 6
+        Invoke-SqlScalar -Query 'SELECT count(*) FROM usage_samples' | Should -Be 6
     }
 
     It 'keeps one row per session across polls, and every poll in the history' {

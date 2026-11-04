@@ -122,6 +122,7 @@ ORDER BY s.server_id
                 LastLogLine     = $row.last_log_line_at
                 LogStale        = [bool] $logStale
                 LogDrift        = $row.log_drift
+                LogDrifted      = [bool] $drifted
                 UnparsedLines   = [int] $row.unparsed_lines
                 UsageSource     = $row.usage_source
                 EffectiveSource = $effectiveSource
