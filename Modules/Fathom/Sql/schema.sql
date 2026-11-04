@@ -257,3 +257,11 @@ CREATE TABLE IF NOT EXISTS ad_history (
 INSERT INTO ad_history (kind, name, attributes, changed_at)
 SELECT o.kind, o.name, o.attributes, o.fetched_at FROM ad_objects o
 WHERE o.found AND NOT EXISTS (SELECT 1 FROM ad_history h WHERE h.kind = o.kind AND h.name = o.name);
+
+-- The person a FlexLM username belongs to: the AD account it matched, by userPrincipalName (unique
+-- across domains), so a person's old and new usernames count once. Unmatched names are their own.
+ALTER TABLE ad_objects ADD COLUMN IF NOT EXISTS person TEXT;
+CREATE INDEX IF NOT EXISTS ad_objects_person ON ad_objects (person) WHERE person IS NOT NULL;
+CREATE OR REPLACE FUNCTION fathom_person(username TEXT) RETURNS TEXT LANGUAGE sql STABLE AS $$
+    SELECT COALESCE((SELECT person FROM ad_objects WHERE kind = 'user' AND name = lower(username)), lower(username))
+$$;

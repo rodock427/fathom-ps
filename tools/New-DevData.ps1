@@ -62,9 +62,9 @@ if (-not $Force -and $Dsn -notmatch '@(localhost|127\.0\.0\.1|\[::1\])[:/]') {
 
 $owned = 'dev-licsrv', 'dev-big'
 $featureSeats = [ordered] @{ MATLAB = 10; SIMULINK = 5; INVENTOR_PRO = 2; AUTOCAD = 25; ANSYS_MECH = 3 }
-# Two log in with their user logon name (userPrincipalName) rather than the pre-Windows 2000 one,
-# as after a naming change: Active Directory lookups resolve both.
-$users = 'alice', 'bob', 'carol', 'dave', 'blossom', 'buttercup', 'bubbles', 'kory.anders', 'rachel.roth', 'jbravo'
+# Some log in with their user logon name (userPrincipalName) rather than the pre-Windows 2000 one,
+# as after a naming change, and Kory with both (starfire, kory.anders): one person either way.
+$users = 'alice', 'bob', 'carol', 'dave', 'blossom', 'buttercup', 'bubbles', 'starfire', 'kory.anders', 'rachel.roth', 'jbravo'
 
 function Remove-DevServer {
     # Every row these servers own, then the servers. Leaves everything else alone.

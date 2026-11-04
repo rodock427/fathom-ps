@@ -212,6 +212,28 @@ INSERT INTO live_sessions (server_id, feature, "user", host, captured_at) VALUES
         (Get-FathomDirectoryObject -Kind user -Name 'johnny.bravo').Found | Should -BeFalse -Because 'two people share that name in different domains'
     }
 
+    It 'treats two usernames for the same account as one person' {
+        $seed = @'
+INSERT INTO live_sessions (server_id, feature, "user", host, captured_at) VALUES
+('licsrv01', 'MATLAB', 'alice', 'WS-01', now()),
+('licsrv01', 'SIMULINK', 'alice.archer', 'WS-01', now());
+INSERT INTO observed_sessions (server_id, feature, "user", host, handle, started_at, licenses, first_seen_at, last_seen_at) VALUES
+('licsrv01', 'MATLAB', 'alice', 'WS-01', '1', @now::timestamp - interval '2 hours', 1, @now::timestamp - interval '2 hours', @now::timestamp),
+('licsrv01', 'SIMULINK', 'alice.archer', 'WS-01', '2', @now::timestamp - interval '1 hour', 1, @now::timestamp - interval '1 hour', @now::timestamp)
+'@
+        # Local time, as Fathom stores it (the database's now() may be in another zone).
+        $null = Invoke-SqlUpdate -Query $seed -Parameters @{ now = (Get-Date).ToString('s') }
+        $null = Sync-FathomDirectory
+
+        (Get-FathomPerson -User 'alice.archer').Usernames | Should -Be @('alice', 'alice.archer')
+        (Get-FathomPerson -User 'ALICE').Person | Should -Be 'alice.archer@corp.local'
+        $usage = Get-FathomUserUsage -User 'alice' -From (Get-Date).AddDays(-1)
+        @($usage.Sessions).Count | Should -Be 2 -Because 'both usernames are hers'
+        @(Find-FathomUser -Text 'alice').Count | Should -Be 1
+        $people = Invoke-SqlQuery -Query "SELECT count(DISTINCT fathom_person(u)) AS n FROM unnest(ARRAY['alice', 'alice.archer', 'ALICE', 'Dave']) u" -WarningAction SilentlyContinue
+        $people.n | Should -Be 2 -Because 'alice three ways is one person; Dave is another'
+    }
+
     It 'stops the run when the directory itself fails' {
         Mock -CommandName Get-ADUser -ModuleName Fathom -MockWith { throw [System.TimeoutException]::new('The server is not operational') }
 

@@ -144,6 +144,10 @@ A FlexLM username can be either of a user's logon names: the pre-Windows 2000 on
 `dave.diaz@corp.example`). Fathom tries the first, then the second. If a name without its domain
 matches people in two domains, it's left unmatched rather than guessed.
 
+**Usernames that match the same account are one person:** someone seen as both `dave` and
+`dave.diaz` has one page (with "Also seen as") covering both, appears once in search, and counts
+once in Seat planning's active and denied users. A username AD doesn't know is a person of its own.
+
 - **Every attribute** the directory returns is listed in Administration, except binary ones such
   as photos. The list holds names only, never values.
 - **Recorded** attributes have their values stored. Display name, department, title, email, manager
@@ -232,7 +236,7 @@ Each returns plain objects; the app decides who sees which.
 | `Get-FathomLicenseHolder` | Operator | Who holds a seat now, flagging long sessions |
 | `Get-FathomDenial`, `Get-FathomUserUsage`, `Get-FathomActivity` | Operator | Denials, one user's history, recent log events |
 | `Get-FathomDirectoryObject`, `Get-FathomDirectoryHistory` | Operator | What Active Directory says about users or hosts, now and over time |
-| `Find-FathomUser` | Operator | Users matching a name or username |
+| `Find-FathomUser`, `Get-FathomPerson` | Operator | People matching a name or username; every username a person has been seen with |
 
 `Get-Help <command>` has the details for every command.
 

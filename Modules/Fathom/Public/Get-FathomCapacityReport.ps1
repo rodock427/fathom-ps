@@ -45,7 +45,8 @@ function Get-FathomCapacityReport {
                 'lmstat' { $lmstatUsers }
                 default { "$logUsers UNION $lmstatUsers" }
             }
-            $activeUsers = "SELECT feature, COUNT(DISTINCT `"user`") AS n FROM ($users) AS u GROUP BY feature"
+            # People, not usernames: someone seen under an old and a new username counts once.
+            $activeUsers = "SELECT feature, COUNT(DISTINCT fathom_person(`"user`")) AS n FROM ($users) AS u GROUP BY feature"
 
             $query = (Get-FathomSeriesSql -Source $source) + @"
 , usage AS (
@@ -60,7 +61,7 @@ demand AS (
     SELECT feature,
            SUM(unit_count) FILTER (WHERE event_type = 'checkout') AS checkouts,
            SUM(unit_count) FILTER (WHERE event_type = 'denied') AS denials,
-           COUNT(DISTINCT "user") FILTER (WHERE event_type = 'denied') AS denied_users
+           COUNT(DISTINCT fathom_person("user")) FILTER (WHERE event_type = 'denied') AS denied_users
     FROM license_events
     WHERE server_id = @server_id AND event_type IN ('checkout', 'denied')
       AND timestamp >= @from::timestamp AND timestamp < @to::timestamp
