@@ -32,6 +32,9 @@ BeforeAll {
         } elseif ($Node.PSObject.BaseObject -is [System.Management.Automation.PSCustomObject]) {
             $Node
             foreach ($property in $Node.PSObject.Properties) { Get-TestNode $property.Value }
+        } elseif ($Node.GetType().FullName -eq 'UniversalDashboard.Models.Basics.Element') {
+            # New-UDElement returns a .NET object; its rendered children are in Content.
+            Get-TestNode $Node.Content
         } elseif ($Node -is [System.Collections.IEnumerable]) {
             foreach ($item in $Node) { Get-TestNode $item }
         }
@@ -63,6 +66,26 @@ Describe 'Access tiers' {
         Test-FathomAccess -Tier Admin -Role 'Administrator' | Should -BeTrue
         Test-FathomAccess -Tier Reader -Role 'Reader', 'Operator' | Should -BeFalse
         Test-FathomAccess -Tier Reader -Role $null | Should -BeFalse
+    }
+}
+
+Describe 'Status colours' {
+    BeforeAll {
+        . (Join-Path -Path $PSScriptRoot -ChildPath '../Apps/Fathom/Common.ps1')
+    }
+
+    It 'colours <Status> as <Color>' -ForEach @(
+        @{ Status = 'Healthy'; Color = 'success' }
+        @{ Status = 'Up'; Color = 'success' }
+        @{ Status = 'Degraded'; Color = 'warning' }
+        @{ Status = 'Stale'; Color = 'warning' }
+        @{ Status = 'Drifted'; Color = 'warning' }
+        @{ Status = 'Down'; Color = 'error' }
+        @{ Status = 'Timeout'; Color = 'error' }
+        @{ Status = 'Disabled'; Color = 'default' }
+        @{ Status = 'Unknown'; Color = 'default' }
+    ) {
+        Get-FathomStatusColor $Status | Should -Be $Color
     }
 }
 
@@ -165,6 +188,29 @@ Describe 'App pages' -Skip:(-not $canRender) {
         $ids | Should -Contain 'admin-servers'
         $ids | Should -Contain 'admin-alerts'
         (Get-TestText (Invoke-TestPage -Page Admin -Role $admin)) | Should -Contain 'Engineering'
+    }
+
+    It 'charts only the busiest features of a server with many, and lists them all' {
+        $null = Register-FathomServer -ServerId wide -Name 'Wide' -LicenseSpec 27000@wide
+        # 30 features, FEATURE_30 busiest: in use rises with the feature number, 10 seats each.
+        $seed = @'
+INSERT INTO usage_samples (server_id, feature, captured_at, licenses_issued, licenses_in_use)
+SELECT 'wide', 'FEATURE_' || lpad(f::text, 2, '0'), @now::timestamp - make_interval(mins => 5 * s), 10, f / 3
+FROM generate_series(1, 30) f, generate_series(1, 12) s
+'@
+        $null = Invoke-SqlUpdate -Query $seed -Parameters @{ now = (Get-Date).ToString('s') }
+        function Get-Chart($Output) { Get-TestNode $Output | Where-Object { $_ -is [System.Collections.IDictionary] -and $_.type -eq 'ud-chartjs' } }
+
+        $page = Invoke-TestPage -Page Server -Role $reader -Query @{ id = 'wide'; days = '1' }
+        $charts = @(Get-Chart $page)
+        $charts.Count | Should -Be 8
+        $charts.id | Should -Contain 'server-usage-FEATURE_30'
+        $charts.id | Should -Not -Contain 'server-usage-FEATURE_01'
+        $table = Get-TestNode $page | Where-Object { $_ -is [System.Collections.IDictionary] -and $_.id -eq 'server-features' }
+        @($table.data).Count | Should -Be 30
+
+        $one = Invoke-TestPage -Page Server -Role $reader -Query @{ id = 'wide'; days = '1'; feature = 'FEATURE_01' }
+        (@(Get-Chart $one)).id | Should -Be 'server-usage-FEATURE_01'
     }
 
     It 'falls back to 7 days for a range that is not offered' {

@@ -24,7 +24,8 @@ function Get-FathomUsageHistory {
         [datetime] $To = (Get-Date),
 
         # Bucket size. Defaults to suit the range: 5 minutes up to 2 days, hourly up to 14, then daily.
-        [ValidateRange(1, 10080)]
+        # Up to a year, so one bucket can span a whole period (each feature's peak).
+        [ValidateRange(1, 527040)]
         [int] $IntervalMinutes,
 
         [ValidateSet('Auto', 'Log', 'Lmstat')]
