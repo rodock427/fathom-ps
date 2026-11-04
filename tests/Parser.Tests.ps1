@@ -4,7 +4,7 @@
 param()
 
 BeforeAll {
-    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Fathom/Fathom.psd1') -Force
+    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
 
     $source = @{ ServerId = 'licsrv01'; SourceFile = 'debug.log' }
 }

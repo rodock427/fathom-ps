@@ -1,6 +1,6 @@
 # Needs a throwaway Postgres: set FATHOM_TEST_DSN. Never point it at a real database.
 BeforeAll {
-    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Fathom/Fathom.psd1') -Force
+    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
 
     function Get-TableColumn([string] $Table) {
         $query = 'SELECT column_name FROM information_schema.columns WHERE table_name = @table ORDER BY ordinal_position'

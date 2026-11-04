@@ -16,6 +16,7 @@
         'New-FathomParserContext'
         'Register-FathomServer'
         'Sync-FathomDebugLog'
+        'Sync-FathomLiveStatus'
         'Unregister-FathomServer'
     )
     CmdletsToExport   = @()

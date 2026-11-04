@@ -10,10 +10,40 @@ It shares Fathom's Postgres tables, so both can run against one database.
 
 | Path | What |
 |---|---|
-| `Fathom/` | The module: all logic, testable without PSU |
-| `Fathom/Sql/schema.sql` | Idempotent DDL, copied verbatim from Fathom's `lm_opdb` |
-| `tests/` | Pester tests |
+The repo root **is** the PSU repository (what PSU's Git sync points at).
+
+| Path | What |
+|---|---|
+| `.universal/` | PSU configuration: scripts and schedules, as code |
+| `Scripts/` | The PSU jobs: thin wrappers around the module |
+| `Modules/Fathom/` | The module: all logic, testable without PSU. PSU puts `Modules/` on its module path |
+| `Modules/Fathom/Sql/schema.sql` | Idempotent DDL, copied verbatim from Fathom's `lm_opdb` |
+| `tests/` | Pester tests. `tests/fakes/lmutil` stands in for lmutil |
 | `build.ps1` | Lint + test; CI runs exactly this |
+
+## Run in PowerShell Universal
+
+| Schedule | Script | Runs |
+|---|---|---|
+| Fathom: read debug logs | `Scripts/Sync-DebugLogs.ps1` | every minute |
+| Fathom: poll lmstat | `Scripts/Sync-LiveStatus.ps1` | every 5 minutes |
+
+`Scripts/Initialize-Database.ps1` isn't scheduled: run it once after installing or updating.
+
+Setup on the PSU server:
+
+1. **Database:** a secret variable named `FathomDsn` (Manage > Variables & Secrets), or `LM_POSTGRES_DSN` set on the PSU service. Don't put a role on the secret: scheduled jobs run without roles and couldn't read it.
+2. **lmutil:** `FATHOM_LMUTIL` set to its full path, or `lmutil` on the service's `PATH`.
+3. **Log access:** the PSU service account needs read access to each server's FlexLM log share.
+4. Run `Scripts/Initialize-Database.ps1`, then register servers (see [Use](#use)).
+
+Local dev against the fake lmutil, with `.dev/` holding `debug.log` and `<host>.txt` lmstat answers:
+
+```bash
+LM_POSTGRES_DSN=postgresql://license_manager:license_manager@localhost:5432/license_manager \
+FATHOM_LMUTIL=$PWD/tests/fakes/lmutil FAKE_LMUTIL_DIR=$PWD/.dev \
+  ~/Documents/Projects/General/Powershell/Powershell-Universal/start-psu.sh "$PWD"
+```
 
 ## Develop
 
@@ -44,7 +74,7 @@ Python parsers. Regenerate them after changing a fixture (needs `../license_mana
 ## Use
 
 ```powershell
-Import-Module ./Fathom/Fathom.psd1
+Import-Module ./Modules/Fathom/Fathom.psd1
 Connect-FathomDatabase          # reads LM_POSTGRES_DSN, the same variable Fathom uses
 Initialize-FathomSchema
 
@@ -56,6 +86,9 @@ Get-FathomServer -Enabled | Sync-FathomDebugLog
 $context = New-FathomParserContext -ServerId licsrv01 -SourceFile '\\licsrv01\flexlm$\debug.log'
 [System.IO.File]::ReadLines($context.SourceFile) | ConvertFrom-FathomDebugLog -Context $context
 
-# Live usage snapshot
+# Poll lmstat: live usage, seat limits, up/down (also safe to schedule)
+Get-FathomServer -Enabled | Sync-FathomLiveStatus -LmutilPath 'C:\FlexLM\lmutil.exe'
+
+# Lower level: parse lmstat output yourself
 & lmutil lmstat -a -c 27000@licsrv01 | ConvertFrom-FathomLmstat -ServerId licsrv01
 ```

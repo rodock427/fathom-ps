@@ -13,12 +13,11 @@ param(
 $ErrorActionPreference = 'Stop'
 
 if ($Task -in 'Lint', 'All') {
-    $analyzer = @{
-        Path     = $PSScriptRoot
-        Recurse  = $true
-        Settings = Join-Path -Path $PSScriptRoot -ChildPath 'PSScriptAnalyzerSettings.psd1'
-    }
-    $findings = Invoke-ScriptAnalyzer @analyzer
+    $settings = Join-Path -Path $PSScriptRoot -ChildPath 'PSScriptAnalyzerSettings.psd1'
+    # Not .universal/: PSU rewrites those files in its own format whenever the admin console saves.
+    $paths = 'Modules', 'Scripts', 'tests', 'build.ps1', 'PSScriptAnalyzerSettings.psd1' |
+        ForEach-Object { Join-Path -Path $PSScriptRoot -ChildPath $_ }
+    $findings = $paths | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Recurse -Settings $settings }
     if ($findings) {
         $findings | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message | Out-String | Write-Information -InformationAction Continue
         throw "PSScriptAnalyzer reported $($findings.Count) finding(s)."

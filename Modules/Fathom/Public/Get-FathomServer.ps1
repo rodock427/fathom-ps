@@ -18,7 +18,8 @@ function Get-FathomServer {
 
     process {
         $query = @'
-SELECT server_id, name, license_spec, log_path, vendor, enabled, created_at
+SELECT server_id, name, license_spec, log_path, vendor, enabled, created_at,
+       last_polled_at, last_poll_status, last_poll_message
 FROM monitored_servers
 WHERE (@server_id::text IS NULL OR server_id = @server_id)
   AND (NOT @enabled_only OR enabled)
@@ -39,6 +40,9 @@ ORDER BY server_id
                 Vendor      = $row.vendor
                 Enabled     = $row.enabled
                 CreatedAt   = $row.created_at
+                LastPolled  = $row.last_polled_at
+                PollStatus  = $row.last_poll_status
+                PollMessage = $row.last_poll_message
             }
         }
     }

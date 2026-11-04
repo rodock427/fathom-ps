@@ -1,5 +1,5 @@
 BeforeAll {
-    $moduleRoot = Join-Path -Path $PSScriptRoot -ChildPath '../Fathom'
+    $moduleRoot = Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom'
     Import-Module (Join-Path -Path $moduleRoot -ChildPath 'Fathom.psd1') -Force
 }
 

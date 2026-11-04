@@ -80,3 +80,7 @@ CREATE TABLE IF NOT EXISTS monitored_servers (
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     CHECK (license_spec IS NOT NULL OR log_path IS NOT NULL)
 );
+-- Result of the latest lmstat poll (fathom-ps only).
+ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_polled_at TIMESTAMP;
+ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_poll_status TEXT;
+ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_poll_message TEXT;

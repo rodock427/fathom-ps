@@ -1,7 +1,7 @@
 # Golden files come from Python Fathom's own parsers: see fixtures/generate_golden.py.
 # Pinned values here must match the ones there.
 BeforeAll {
-    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Fathom/Fathom.psd1') -Force
+    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
 
     # One comparable line per row. Dates are normalised because ConvertFrom-Json may parse them.
     function ConvertTo-ComparableRow([System.Collections.IDictionary] $Row) {

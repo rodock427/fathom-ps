@@ -9,15 +9,18 @@ Orchestration, cost/token/department reporting, the custom push agent and the Do
 
 ## Shape
 
+The repo root is the PSU repository, because PSU's Git sync syncs the whole folder.
+
 ```
 fathom-ps/
-├── Fathom/                    # module: parsing, collection, storage, queries
-│   ├── Classes/  Private/  Public/   # one function per file
-│   └── Sql/schema.sql         # Fathom's monitoring tables + one PSU-side config table
+├── .universal/                # PSU config as code: scripts.ps1, schedules.ps1 (later: apps)
+├── Scripts/                   # PSU jobs: thin wrappers around the module
+├── Modules/Fathom/            # module: parsing, collection, storage, queries (PSU auto-loads Modules/)
+│   ├── Private/  Public/      # one function per file
+│   └── Sql/schema.sql         # Fathom's monitoring tables + PSU-side tables
 ├── tests/                     # Pester; parity tests reuse license_manager fixtures
 ├── PSScriptAnalyzerSettings.psd1
-├── azure-pipelines.yml        # CI: PSScriptAnalyzer + Pester on every push
-└── repository/                # PSU glue only: schedules, scripts, (later) apps
+└── azure-pipelines.yml        # CI: PSScriptAnalyzer + Pester on every push
 ```
 
 ## Code style (enforced)
