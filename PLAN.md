@@ -13,7 +13,8 @@ The repo root is the PSU repository, because PSU's Git sync syncs the whole fold
 
 ```
 fathom-ps/
-├── .universal/                # PSU config as code: scripts.ps1, schedules.ps1 (later: apps)
+├── .universal/                # PSU config as code: scripts, schedules, the app, roles
+├── Apps/Fathom/               # the PSU app: one script per page
 ├── Scripts/                   # PSU jobs: thin wrappers around the module
 ├── Modules/Fathom/            # module: parsing, collection, storage, queries (PSU auto-loads Modules/)
 │   ├── Private/  Public/      # one function per file
@@ -76,13 +77,14 @@ Totals are for everyone. Anything about an individual is for license admins and 
 | **People** | | Current holders with session length (flags long ones), user lookup | same |
 | **Admin** | | | Add / edit / disable servers, poll now, alert settings |
 
-Roles map to PSU's built-in Reader, Operator and Administrator.
+Roles are the app's own `FathomReader`, `FathomOperator` and `FathomAdmin`, mapped to directory groups.
+Not PSU's built-in Reader and Operator: those open the PSU admin console, and Operator can edit scripts.
 
 ## Alerts (built in, off by default)
 
-Rules: server or vendor daemon down, a feature at full capacity for a while, a license expiring within 30 days, data gone stale.
-The alert schedule ships **paused** and a setting gates sending, so it can be switched on later without a deploy.
-Channel (email or a Teams workflow webhook) is decided in phase 7.
+Rules: server or vendor daemon down, a feature at full capacity for a while, a license expiring within 30 days, data gone stale, a debug log that disagrees with lmstat.
+The alert schedule runs, but a setting gates sending (off by default), so it can be switched on later without a deploy.
+Channel: email, one digest per run. A Teams workflow webhook could be added later.
 
 ## Later (not V1)
 

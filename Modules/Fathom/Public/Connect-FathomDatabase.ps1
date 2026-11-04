@@ -7,12 +7,13 @@ function Connect-FathomDatabase {
     #>
     [CmdletBinding()]
     param(
-        # libpq URI or Npgsql connection string. Defaults to the same variable Fathom reads.
-        [string] $Dsn = $env:LM_POSTGRES_DSN
+        # libpq URI or Npgsql connection string. Defaults to PSU's FathomDsn secret, then
+        # LM_POSTGRES_DSN (the variable Fathom reads).
+        [string] $Dsn = (Get-FathomDefaultDsn)
     )
 
     if (-not $Dsn) {
-        throw 'No database configured. Pass -Dsn or set LM_POSTGRES_DSN.'
+        throw 'No database configured. Pass -Dsn, add a FathomDsn secret in PSU, or set LM_POSTGRES_DSN.'
     }
 
     # Reconnecting replaces the old connection, so a changed DSN always wins.

@@ -1,0 +1,1 @@
+New-PSUApp -Name 'Fathom' -BaseUrl '/fathom' -FilePath 'Apps/Fathom/Fathom.ps1' -Authenticated -Role @('FathomReader', 'FathomOperator', 'FathomAdmin', 'Administrator') -AutoDeploy -Description 'FlexLM license monitoring'

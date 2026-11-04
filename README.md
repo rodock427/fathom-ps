@@ -8,13 +8,12 @@ It shares Fathom's Postgres tables, so both can run against one database.
 
 ## Layout
 
-| Path | What |
-|---|---|
 The repo root **is** the PSU repository (what PSU's Git sync points at).
 
 | Path | What |
 |---|---|
-| `.universal/` | PSU configuration: scripts and schedules, as code |
+| `.universal/` | PSU configuration as code: scripts, schedules, the app and roles |
+| `Apps/Fathom/` | The PSU app: `Fathom.ps1` lists the pages, `Pages/` holds one script per page |
 | `Scripts/` | The PSU jobs: thin wrappers around the module |
 | `Modules/Fathom/` | The module: all logic, testable without PSU. PSU puts `Modules/` on its module path |
 | `Modules/Fathom/Sql/schema.sql` | Idempotent DDL, copied verbatim from Fathom's `lm_opdb` |
@@ -45,6 +44,8 @@ Setup on the PSU server:
    Send-FathomAlert -Test
    Set-FathomAlertSetting -Enabled $true
    ```
+6. **Who sees what:** map each Fathom role to a directory group (Security > Roles: set the claim
+   type and value, e.g. the group's SID with Windows sign-in). See [The app](#the-app).
 
 Local dev against the fake lmutil, with `.dev/` holding `debug.log` and `<host>.txt` lmstat answers:
 
@@ -53,6 +54,27 @@ LM_POSTGRES_DSN=postgresql://license_manager:license_manager@localhost:5432/lice
 FATHOM_LMUTIL=$PWD/tests/fakes/lmutil FAKE_LMUTIL_DIR=$PWD/.dev \
   ~/Documents/Projects/General/Powershell/Powershell-Universal/start-psu.sh "$PWD"
 ```
+
+## The app
+
+`/fathom`, signed in. Three roles, each including the one before; PSU's `Administrator` gets everything.
+
+| Page | FathomReader | FathomOperator | FathomAdmin |
+|---|---|---|---|
+| Overview | Free seats, server health, alerts, expiring soon | + denials in the last 24 hours | same |
+| Server detail | Usage against seats per feature (24 h to a year), health, uptime | + who holds a seat, denials, recent log activity | same |
+| Capacity and renewal | | Peak, typical (P95), time at capacity, denials, users denied, active users; export to CSV/Excel | same |
+| People | | Current holders (long sessions flagged), one user's last 90 days | same |
+| Administration | | | Add, edit, pause and poll servers; alert settings and a test message |
+
+Pages are hidden from roles below their tier, and each page checks the tier again in its own
+script, so individual data never reaches a browser that shouldn't see it. `tests/App.Tests.ps1`
+renders every page as each role to prove it.
+
+PSU's built-in `Reader`, `Operator` and `Execute` roles give access to the PSU admin console (and
+`Operator` can edit scripts), so `.universal/roles.ps1` gives them to nobody by default: Fathom
+users need only a Fathom role. Your own local admin account keeps `Administrator`, which is
+assigned to it directly.
 
 ## Develop
 
@@ -84,7 +106,7 @@ Python parsers. Regenerate them after changing a fixture (needs `../license_mana
 
 ```powershell
 Import-Module ./Modules/Fathom/Fathom.psd1
-Connect-FathomDatabase          # reads LM_POSTGRES_DSN, the same variable Fathom uses
+Connect-FathomDatabase          # PSU's FathomDsn secret, else LM_POSTGRES_DSN (the variable Fathom uses)
 Initialize-FathomSchema
 
 # Monitor a server, then read what's new in its debug log (safe to run on a schedule)
