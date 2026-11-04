@@ -39,7 +39,7 @@ function New-FathomTable {
     }
 
     $tableColumns = foreach ($property in $Columns.Keys) {
-        $column = @{ Property = $property; Title = $Columns[$property]; ShowSort = $true; IncludeInExport = $true }
+        $column = @{ Property = $property; Title = $Columns[$property]; ShowSort = $true; IncludeInExport = $true; IncludeInSearch = $true }
         if ($Render[$property]) {
             $column.OnRender = $Render[$property]
         }
@@ -68,9 +68,10 @@ function Get-FathomStatusColor {
     #>
     param([string] $Status)
 
+    # Health statuses (Get-FathomServerHealth) and lmstat poll statuses.
     switch ($Status) {
-        'Up' { 'success' }
-        'Degraded' { 'warning' }
+        { $_ -in 'Healthy', 'Up' } { 'success' }
+        { $_ -in 'Degraded', 'Stale', 'Drifted' } { 'warning' }
         { $_ -in 'Down', 'Timeout' } { 'error' }
         default { 'default' }
     }

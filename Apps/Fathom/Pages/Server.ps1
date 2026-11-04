@@ -24,13 +24,15 @@ Use-FathomDatabase {
 
     New-UDTypography -Variant h4 -Text $server.Name -GutterBottom
     New-UDStack -Direction column -Spacing 1 -Children {
-        New-UDStack -Direction row -Spacing 1 -Children {
+        # A dropdown, not buttons: production may have dozens of servers.
+        New-UDSelect -Id 'server-picker' -Label 'Server' -DefaultValue $id -Option {
             foreach ($other in $servers) {
-                $variant = if ($other.ServerId -eq $id) { 'contained' } else { 'outlined' }
-                New-UDButton -Text $other.Name -Variant $variant -Size small -Href "server?id=$($other.ServerId)&days=$days"
+                New-UDSelectOption -Name $other.Name -Value $other.ServerId
             }
+        } -OnChange {
+            Invoke-UDRedirect -Url "server?id=$([uri]::EscapeDataString($EventData))&days=$days"
         }
-        New-FathomRangePicker -Days $rangeDays -Selected $days -Page 'server' -Query @{ id = $id }
+        New-FathomRangePicker -Days $rangeDays -Selected $days -Page 'server' -Query @{ id = $id; feature = $Query.feature }
     }
 
     $health = Get-FathomServerHealth -ServerId $id
@@ -52,8 +54,47 @@ Use-FathomDatabase {
         }
     }
 
+    # One bucket spanning the whole period gives each feature's peak cheaply, however many
+    # features there are; full history is fetched only for the features charted.
+    $inUseNow = @{}
+    Get-FathomAvailability -ServerId $id | ForEach-Object { $inUseNow[$_.Feature] = $_.InUse }
+    $features = foreach ($row in Get-FathomUsageHistory -ServerId $id -From $from -IntervalMinutes ($days * 1440)) {
+        [pscustomobject] @{
+            Feature     = $row.Feature
+            Seats       = $row.Issued
+            Peak        = $row.PeakInUse
+            PeakPercent = if ($row.Issued) { [Math]::Round(100 * $row.PeakInUse / $row.Issued) } else { $null }
+            InUseNow    = $inUseNow[$row.Feature]
+            Link        = 'server?id={0}&days={1}&feature={2}' -f $id, $days, [uri]::EscapeDataString($row.Feature)
+        }
+    }
+
+    # Busiest first: highest peak share of seats, then the most seats.
+    $features = @($features | Sort-Object -Property @{ Expression = 'PeakPercent'; Descending = $true }, @{ Expression = 'Seats'; Descending = $true }, Feature)
+
+    # A picked feature, else the busiest few. ponytail: 8 charts; a feature beyond that is one click away in the table.
+    $chartLimit = 8
+    $charted = if ($Query.feature) {
+        @($features | Where-Object Feature -EQ $Query.feature)
+    } else {
+        @($features | Select-Object -First $chartLimit)
+    }
+    $title = if ($Query.feature) {
+        $Query.feature
+    } elseif ($features.Count -gt $chartLimit) {
+        "Busiest $($charted.Count) of $($features.Count) features: pick any feature below to chart it"
+    } else {
+        'Usage against seats'
+    }
+
     $labelFormat = if ($days -gt 7) { 'MM-dd' } else { 'MM-dd HH:mm' }
-    $history = Get-FathomUsageHistory -ServerId $id -From $from -IntervalMinutes $bucketMinutes[$days]
+    $history = if ($charted) {
+        Get-FathomUsageHistory -ServerId $id -From $from -IntervalMinutes $bucketMinutes[$days] -Feature $charted.Feature
+    }
+    New-UDTypography -Variant h6 -Text $title -GutterBottom
+    if ($Query.feature) {
+        New-UDLink -Text 'Back to the busiest features' -Url "server?id=$id&days=$days"
+    }
     New-UDGrid -Container -Spacing 2 -Children {
         if (-not $history) {
             New-UDGrid -Item -ExtraSmallSize 12 -Children {
@@ -64,7 +105,8 @@ Use-FathomDatabase {
             $points = $feature.Group | Sort-Object BucketStart | ForEach-Object {
                 [pscustomobject] @{ Time = $_.BucketStart.ToString($labelFormat); InUse = $_.PeakInUse; Seats = $_.Issued }
             }
-            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Children {
+            $width = if ($charted.Count -eq 1) { 12 } else { 6 }
+            New-UDGrid -Item -ExtraSmallSize 12 -MediumSize $width -Children {
                 New-UDCard -Title $feature.Name -Content {
                     $chart = @{
                         Id            = "server-usage-$($feature.Name)"
@@ -79,7 +121,7 @@ Use-FathomDatabase {
                             maintainAspectRatio = $false
                             elements            = @{ point = @{ radius = 0 }; line = @{ stepped = $true } }
                             scales              = @{
-                                x = @{ ticks = @{ maxRotation = 0; autoSkip = $true; autoSkipPadding = 24; maxTicksLimit = 6 } }
+                                x = @{ ticks = @{ maxRotation = 0; autoSkip = $true; autoSkipPadding = 24; maxTicksLimit = 4 } }
                                 y = @{ beginAtZero = $true; ticks = @{ precision = 0 } }
                             }
                         }
@@ -89,6 +131,17 @@ Use-FathomDatabase {
                 }
             }
         }
+    }
+
+    New-UDCard -Title "All features ($($features.Count))" -Content {
+        $table = @{
+            Id      = 'server-features'
+            Data    = $features
+            Columns = [ordered] @{ Feature = 'Feature'; Seats = 'Seats'; Peak = 'Peak in period'; PeakPercent = 'Peak %'; InUseNow = 'In use now' }
+            Render  = @{ Feature = { New-UDLink -Text $EventData.Feature -Url $EventData.Link } }
+            Empty   = 'No usage recorded in this period.'
+        }
+        New-FathomTable @table
     }
 
     if (-not $operator) {

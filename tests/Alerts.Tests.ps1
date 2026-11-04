@@ -198,7 +198,11 @@ INSERT INTO feature_inventory (server_id, feature, licenses_issued, expiration) 
 
         It 'reports a drifted log even on a degraded server' {
             $log = Join-Path -Path $TestDrive -ChildPath 'drift.log'
-            "09:00:00 (mlm) TIMESTAMP 11/2/2026`n09:01:00 (mlm) OUT: `"MATLAB`" alice@ws01`n" | Set-Content -Path $log -NoNewline
+            # Recent, so the log isn't also stale: drift alone is under test.
+            $at = (Get-Date).AddMinutes(-10)
+            $date = $at.ToString('M/d/yyyy', [cultureinfo]::InvariantCulture)
+            "$($at.ToString('HH:mm:ss')) (mlm) TIMESTAMP $date`n$($at.AddMinutes(1).ToString('HH:mm:ss')) (mlm) OUT: `"MATLAB`" alice@ws01`n" |
+                Set-Content -Path $log -NoNewline
             $null = Set-FathomServer -ServerId licsrv01 -LogPath $log
             $null = Get-FathomServer | Sync-FathomDebugLog
             Write-TestOutage -ServerId licsrv01 -Status Degraded -Minutes 20 -Message 'mlm: down'
