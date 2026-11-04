@@ -1,0 +1,17 @@
+@{
+    RootModule        = 'Fathom.psm1'
+    ModuleVersion     = '0.1.0'
+    GUID              = '5f0c6a2e-8d3b-4c71-9a54-2b7e1f6d9c40'
+    Author            = 'rodock427'
+    Description       = 'FlexLM license monitoring for PowerShell Universal.'
+    PowerShellVersion = '7.4'
+    RequiredModules   = @(@{ ModuleName = 'SimplySql'; ModuleVersion = '2.2.0' })
+    FunctionsToExport = @(
+        'Connect-FathomDatabase'
+        'Disconnect-FathomDatabase'
+        'Initialize-FathomSchema'
+    )
+    CmdletsToExport   = @()
+    VariablesToExport = @()
+    AliasesToExport   = @()
+}

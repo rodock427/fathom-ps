@@ -1,0 +1,44 @@
+# Lint + test on every push and PR. Runs the same ./build.ps1 as local dev.
+trigger:
+  branches:
+    include: [main]
+pr:
+  branches:
+    include: [main]
+
+pool:
+  vmImage: ubuntu-latest
+
+resources:
+  containers:
+    - container: postgres
+      image: docker.io/library/postgres:16-alpine
+      env:
+        POSTGRES_USER: fathom
+        POSTGRES_PASSWORD: fathom
+        POSTGRES_DB: fathom_ps_test
+      ports:
+        - 5432:5432
+
+services:
+  postgres: postgres
+
+variables:
+  FATHOM_TEST_DSN: postgresql://fathom:fathom@localhost:5432/fathom_ps_test
+
+steps:
+  - pwsh: |
+      $modules = @{ Pester = '6.2.0'; PSScriptAnalyzer = '1.25.0'; SimplySql = '2.2.0.106' }
+      foreach ($name in $modules.Keys) {
+          Install-PSResource -Name $name -Version $modules[$name] -TrustRepository -Quiet
+      }
+    displayName: Install modules (pinned)
+
+  - pwsh: ./build.ps1
+    displayName: Lint and test
+
+  - task: PublishTestResults@2
+    condition: succeededOrFailed()
+    inputs:
+      testResultsFormat: JUnit
+      testResultsFiles: testResults.xml
