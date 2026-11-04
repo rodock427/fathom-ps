@@ -19,6 +19,7 @@
         'Get-FathomDenial'
         'Get-FathomExpiry'
         'Get-FathomLicenseHolder'
+        'Get-FathomRole'
         'Get-FathomServer'
         'Get-FathomServerHealth'
         'Get-FathomServerUptime'
@@ -32,7 +33,9 @@
         'Set-FathomServer'
         'Sync-FathomDebugLog'
         'Sync-FathomLiveStatus'
+        'Test-FathomAccess'
         'Unregister-FathomServer'
+        'Use-FathomDatabase'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()
