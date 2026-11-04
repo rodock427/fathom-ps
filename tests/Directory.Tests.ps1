@@ -59,7 +59,7 @@ Describe 'Sync-FathomDirectory' -Skip:(-not $env:FATHOM_TEST_DSN) {
     }
 
     BeforeEach {
-        $null = Invoke-SqlUpdate -Query 'TRUNCATE ad_objects, ad_attributes, live_sessions, observed_sessions, license_events'
+        $null = Invoke-SqlUpdate -Query 'TRUNCATE ad_objects, ad_attributes, ad_history, live_sessions, observed_sessions, license_events'
         $null = Invoke-SqlUpdate -Query 'UPDATE ad_settings SET enabled = TRUE, server = NULL, refresh_hours = 24'
         $seed = @'
 INSERT INTO live_sessions (server_id, feature, "user", host, captured_at) VALUES
@@ -122,6 +122,21 @@ INSERT INTO live_sessions (server_id, feature, "user", host, captured_at) VALUES
         (Get-Stored -Kind user -Name dave).Keys | Should -Contain 'Title'
     }
 
+    It 'lists Department by default, and cascades the three switches' {
+        $null = Sync-FathomDirectory
+        (Get-FathomDirectoryAttribute -Kind user | Where-Object Listed).Name | Should -Be 'Department'
+
+        $title = Set-FathomDirectoryAttribute -Kind user -Name Company -Listed $true
+        $title.Shown | Should -BeTrue -Because 'listing shows'
+        $title.Recorded | Should -BeTrue -Because 'showing records'
+
+        (Set-FathomDirectoryAttribute -Kind user -Name Company -Shown $false).Listed | Should -BeFalse -Because 'hiding unlists'
+        $null = Set-FathomDirectoryAttribute -Kind user -Name Company -Listed $true
+        $off = Set-FathomDirectoryAttribute -Kind user -Name Company -Recorded $false
+        $off.Shown | Should -BeFalse
+        $off.Listed | Should -BeFalse
+    }
+
     It 'records an attribute that is shown' {
         $null = Sync-FathomDirectory
         $attribute = Set-FathomDirectoryAttribute -Kind user -Name Company -Shown $true
@@ -139,6 +154,44 @@ INSERT INTO live_sessions (server_id, feature, "user", host, captured_at) VALUES
         (Get-FathomDirectoryObject -Kind user -Name dave -All).Attributes.Office | Should -Be 'Plant 3'
         (Get-FathomDirectoryObject -Kind computer -Name 'WS-04.corp.local').Attributes.OperatingSystem | Should -Be 'Windows 11 Enterprise'
         (Get-FathomDirectoryObject -Kind user -Name ghost).Found | Should -BeFalse
+    }
+
+    It 'keeps a history of changes, without repeating unchanged values' {
+        $null = Sync-FathomDirectory
+        $null = Invoke-SqlUpdate -Query "UPDATE ad_objects SET fetched_at = '-infinity'"
+        $null = Sync-FathomDirectory
+        @(Get-FathomDirectoryHistory -Kind user -Name dave | Where-Object Attribute -EQ 'Department').Count | Should -Be 1 -Because 'nothing changed on the second lookup'
+
+        # A day later (history is kept to the second), dave moves department in AD.
+        $null = Invoke-SqlUpdate -Query "UPDATE ad_history SET changed_at = changed_at - interval '1 day'"
+
+        Mock -CommandName Get-ADUser -ModuleName Fathom -MockWith {
+            $user = ActiveDirectory\Get-ADUser -Identity $Identity -Properties *
+            if ($user.SamAccountName -eq 'dave') { $user.Department = 'Quality' }
+            $user
+        }
+        $null = Invoke-SqlUpdate -Query "UPDATE ad_objects SET fetched_at = '-infinity'"
+        $null = Sync-FathomDirectory
+        $changes = @(Get-FathomDirectoryHistory -Kind user -Name dave | Where-Object Attribute -EQ 'Department')
+        $changes.Count | Should -Be 2
+        $changes[-1].From | Should -Be 'Manufacturing'
+        $changes[-1].To | Should -Be 'Quality'
+    }
+
+    It 'removes an unrecorded attribute from the history too' {
+        $null = Sync-FathomDirectory
+        $null = Set-FathomDirectoryAttribute -Kind user -Name Department -Recorded $false
+
+        $stored = Invoke-SqlQuery -Query "SELECT count(*) AS n FROM ad_history WHERE attributes ? 'Department'" -WarningAction SilentlyContinue
+        $stored.n | Should -Be 0
+    }
+
+    It 'finds users by username, or by display name when it''s shown' {
+        $null = Sync-FathomDirectory
+        (Find-FathomUser -Text 'DAV').User | Should -Contain 'Dave'
+        (Find-FathomUser -Text 'Diaz').User | Should -Contain 'Dave'
+        $null = Set-FathomDirectoryAttribute -Kind user -Name DisplayName -Shown $false
+        (Find-FathomUser -Text 'Diaz') | Should -BeNullOrEmpty -Because 'a hidden display name is not searched'
     }
 
     It 'stops the run when the directory itself fails' {

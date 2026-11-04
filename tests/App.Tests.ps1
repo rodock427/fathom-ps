@@ -136,7 +136,7 @@ Describe 'App pages' -Skip:(-not $canRender) {
         @{ Page = 'Overview'; Tier = 'FathomReader' }
         @{ Page = 'Overview'; Tier = 'FathomOperator' }
         @{ Page = 'Server'; Tier = 'FathomOperator' }
-        @{ Page = 'Capacity'; Tier = 'FathomOperator' }
+        @{ Page = 'SeatPlanning'; Tier = 'FathomOperator' }
         @{ Page = 'People'; Tier = 'FathomOperator' }
         @{ Page = 'Admin'; Tier = 'FathomAdmin' }
     ) {
@@ -170,7 +170,7 @@ Describe 'App pages' -Skip:(-not $canRender) {
     }
 
     It 'turns away a reader from the <Page> page entirely' -ForEach @(
-        @{ Page = 'Capacity' }
+        @{ Page = 'SeatPlanning' }
         @{ Page = 'People' }
         @{ Page = 'Admin' }
     ) {
@@ -186,11 +186,14 @@ Describe 'App pages' -Skip:(-not $canRender) {
         Get-TestId (Invoke-TestPage -Page Overview -Role 'Reader', 'Operator') | Should -Be 'not-authorized'
     }
 
-    It 'gives operators the capacity report and a user''s history' {
-        Get-TestId (Invoke-TestPage -Page Capacity -Role $operator) | Should -Contain 'capacity-report'
-        $people = Invoke-TestPage -Page People -Role $operator -Query @{ user = 'dave' }
-        Get-TestId $people | Should -Contain 'people-sessions'
-        Get-TestId $people | Should -Contain 'people-holders'
+    It 'gives operators seat planning, and one user''s history without everyone else' {
+        Get-TestId (Invoke-TestPage -Page SeatPlanning -Role $operator) | Should -Contain 'capacity-report'
+        $one = Get-TestId (Invoke-TestPage -Page People -Role $operator -Query @{ user = 'dave' })
+        $one | Should -Contain 'people-profile'
+        $one | Should -Contain 'people-sessions'
+        $one | Should -Contain 'people-directory-changes'
+        $one | Should -Not -Contain 'people-holders'
+        Get-TestId (Invoke-TestPage -Page People -Role $operator) | Should -Contain 'people-holders'
     }
 
     It 'shows operators what Active Directory says, as chosen on the admin page' {
@@ -201,8 +204,25 @@ Describe 'App pages' -Skip:(-not $canRender) {
         $text | Should -Contain 'Dave Diaz'
         $text | Should -Contain 'Manufacturing'
         $text | Should -Contain 'Morgan Manager' -Because 'a distinguished name shows as its name'
-        $text | Should -Contain 'Department' -Because 'shown attributes become holder columns'
-        $text | Should -Contain 'Host OperatingSystem'
+        $everyone = Get-TestText (Invoke-TestPage -Page People -Role $operator)
+        $everyone | Should -Contain 'Department' -Because 'Department is in lists by default'
+        $everyone | Should -Not -Contain 'Title' -Because 'shown but not in lists: the profile has it, the list does not'
+        $everyone | Should -Not -Contain 'Host OperatingSystem'
+        $everyone | Should -Contain 'Dave Diaz (dave)' -Because 'the display name goes with the username'
+
+        $null = Set-FathomDirectoryAttribute -Kind computer -Name OperatingSystem -Listed $true
+        Get-TestText (Invoke-TestPage -Page People -Role $operator) | Should -Contain 'Host OperatingSystem'
+    }
+
+    It 'charts a custom range, and puts every part of a server in its own tab' {
+        $from = (Get-Date).AddHours(-3).ToString('s')
+        $to = (Get-Date).ToString('s')
+        $page = Invoke-TestPage -Page Server -Role $operator -Query @{ from = $from; to = $to }
+        $tabs = Get-TestNode $page | Where-Object { $_ -is [System.Collections.IDictionary] -and $_.type -eq 'mu-tabs' }
+        @($tabs).Count | Should -Be 1
+        $text = Get-TestText $page
+        $text | Where-Object { $_ -like 'Showing *' } | Should -Not -BeNullOrEmpty
+        $text | Where-Object { $_ -like '*the last 7 days*' } | Should -BeNullOrEmpty -Because 'the custom range replaces the default'
     }
 
     It 'gives admins the server list and settings' {
@@ -240,5 +260,42 @@ FROM generate_series(1, 30) f, generate_series(1, 12) s
             Where-Object { $_ -is [System.Collections.IDictionary] -and $_.type -eq 'mu-button' -and $_.variant -eq 'contained' }
         $buttons.text | Should -Contain '7 days'
         $buttons.text | Should -Not -Contain '100000 days'
+    }
+}
+
+Describe 'Timeframes' {
+    BeforeAll {
+        . (Join-Path -Path $PSScriptRoot -ChildPath '../Apps/Fathom/Common.ps1')
+    }
+
+    It 'uses a preset from the query, or the default' {
+        (Get-FathomTimeframe -Query @{ days = '30' } -Presets 1, 7, 30 -DefaultDays 7).Days | Should -Be 30
+        (Get-FathomTimeframe -Query @{ days = '9999' } -Presets 1, 7, 30 -DefaultDays 7).Days | Should -Be 7
+        (Get-FathomTimeframe -Presets 1, 7, 30 -DefaultDays 7).Label | Should -Be 'the last 7 days'
+    }
+
+    It 'takes a custom range, never past now' {
+        $frame = Get-FathomTimeframe -Query @{ from = '2026-01-05T09:00:00'; to = '2999-01-01T00:00:00' } -Presets 7 -DefaultDays 7
+        $frame.Custom | Should -BeTrue
+        $frame.From | Should -Be ([datetime] '2026-01-05 09:00')
+        $frame.To | Should -BeLessOrEqual (Get-Date)
+    }
+
+    It 'ignores a range that ends before it starts, or isn''t a date' {
+        (Get-FathomTimeframe -Query @{ from = '2026-02-01'; to = '2026-01-01' } -Presets 7 -DefaultDays 7).Custom | Should -BeFalse
+        (Get-FathomTimeframe -Query @{ from = 'soon'; to = 'later' } -Presets 7 -DefaultDays 7).Custom | Should -BeFalse
+    }
+
+    It 'picks finer chart buckets for shorter windows' {
+        $now = Get-Date
+        $bucket = { param($hours) (Get-FathomTimeframe -Query @{ from = $now.AddHours(-$hours).ToString('s'); to = $now.ToString('s') } -Presets 7 -DefaultDays 7).BucketMinutes }
+        & $bucket 3 | Should -Be 5
+        & $bucket 20 | Should -Be 15
+        & $bucket (24 * 5) | Should -Be 60
+        & $bucket (24 * 400) | Should -Be 1440
+    }
+
+    It 'builds a query string without empty values' {
+        ConvertTo-FathomQueryString @{ id = 'licsrv 1'; feature = $null; days = 7 } | Should -Be 'days=7&id=licsrv%201'
     }
 }

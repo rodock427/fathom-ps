@@ -7,6 +7,9 @@ if (-not (Test-FathomAccess -Tier Reader -Role $Roles)) {
 }
 
 $operator = Test-FathomAccess -Tier Operator -Role $Roles
+# The period for denials; everything else on this page is now.
+$presets = 1, 7, 30
+$timeframe = Get-FathomTimeframe -Query $Query -Presets $presets -DefaultDays 1
 $severity = @{ Critical = 'error'; Warning = 'warning'; Info = 'info' }
 
 Use-FathomDatabase {
@@ -80,18 +83,18 @@ Use-FathomDatabase {
         New-UDGrid -Item -ExtraSmallSize 12 -LargeSize 4 -Children {
             New-UDCard -Title "Expiring within $($settings.ExpiryDays) days" -Content {
                 $rows = Get-FathomExpiry -WithinDays $settings.ExpiryDays -IncludeExpired | ForEach-Object {
+                    # Three short columns: this card is a third of the page wide.
+                    $left = if ($_.DaysLeft -lt 0) { 'expired' } else { "$($_.DaysLeft) days" }
                     [pscustomobject] @{
-                        Feature  = $_.Feature
-                        Server   = $_.Server
-                        Seats    = $_.Seats
-                        Expires  = $_.Expires.ToString('yyyy-MM-dd')
-                        DaysLeft = $_.DaysLeft
+                        Feature = $_.Feature
+                        Server  = $_.Server
+                        Expires = "$($_.Expires.ToString('yyyy-MM-dd')) ($left)"
                     }
                 }
                 $table = @{
                     Id      = 'overview-expiry'
                     Data    = $rows
-                    Columns = [ordered] @{ Feature = 'Feature'; Expires = 'Expires'; DaysLeft = 'Days left'; Seats = 'Seats'; Server = 'Server' }
+                    Columns = [ordered] @{ Feature = 'Feature'; Expires = 'Expires'; Server = 'Server' }
                     Empty   = 'Nothing is about to expire.'
                 }
                 New-FathomTable @table
@@ -100,8 +103,9 @@ Use-FathomDatabase {
 
         if ($operator) {
             New-UDGrid -Item -ExtraSmallSize 12 -Children {
-                New-UDCard -Title 'Denied in the last 24 hours' -Content {
-                    $rows = Get-FathomDenial | ForEach-Object {
+                New-UDCard -Title "Denied in $($timeframe.Label)" -Content {
+                    New-FathomTimeframePicker -Timeframe $timeframe -Presets $presets -Page 'overview'
+                    $rows = Get-FathomDenial -From $timeframe.From -To $timeframe.To | ForEach-Object {
                         [pscustomobject] @{
                             Time    = Format-FathomTime $_.Time
                             Server  = $_.ServerId
@@ -115,7 +119,7 @@ Use-FathomDatabase {
                         Data    = $rows
                         Columns = [ordered] @{ Time = 'Time'; Feature = 'Feature'; User = 'User'; Host = 'Host'; Server = 'Server' }
                         Render  = @{ User = { New-UDLink -Text $EventData.User -Url "people?user=$([uri]::EscapeDataString($EventData.User))" } }
-                        Empty   = 'No denials in the last 24 hours (servers without a readable debug log cannot report them).'
+                        Empty   = 'No denials in this period (servers without a readable debug log cannot report them).'
                     }
                     New-FathomTable @table
                 }
