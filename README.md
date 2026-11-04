@@ -48,7 +48,11 @@ Import-Module ./Fathom/Fathom.psd1
 Connect-FathomDatabase          # reads LM_POSTGRES_DSN, the same variable Fathom uses
 Initialize-FathomSchema
 
-# Parse a debug log. Keep the context's CurrentDate and LineNumber to resume later.
+# Monitor a server, then read what's new in its debug log (safe to run on a schedule)
+Register-FathomServer -ServerId licsrv01 -LicenseSpec 27000@licsrv01 -LogPath '\\licsrv01\flexlm$\debug.log'
+Get-FathomServer -Enabled | Sync-FathomDebugLog
+
+# Lower level: parse lines yourself. Keep the context's CurrentDate and LineNumber to resume later.
 $context = New-FathomParserContext -ServerId licsrv01 -SourceFile '\\licsrv01\flexlm$\debug.log'
 [System.IO.File]::ReadLines($context.SourceFile) | ConvertFrom-FathomDebugLog -Context $context
 

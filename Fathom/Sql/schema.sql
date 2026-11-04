@@ -1,6 +1,7 @@
--- Fathom monitoring tables. Copied verbatim from license_manager/src/lm_opdb so
--- the Python and PowerShell versions can share one database. Every statement is
--- idempotent: keep it that way.
+-- Fathom monitoring tables. Shared tables are copied verbatim from
+-- license_manager/src/lm_opdb so the Python and PowerShell versions can use one
+-- database; tables marked "fathom-ps only" are this app's own. Every statement
+-- is idempotent: keep it that way.
 
 -- Usage history parsed from lmgrd debug logs (lm_opdb/license_events.py).
 CREATE TABLE IF NOT EXISTS license_events (
@@ -53,3 +54,29 @@ CREATE TABLE IF NOT EXISTS feature_inventory (
     PRIMARY KEY (server_id, feature)
 );
 ALTER TABLE feature_inventory ADD COLUMN IF NOT EXISTS token_family TEXT;
+
+-- Read position per log file (lm_opdb/manifest.py). Shared with Fathom: this
+-- app's rows use file_key 'psu:<server_id>:<first-line hash>'.
+CREATE TABLE IF NOT EXISTS _ingest_manifest (
+    file_key TEXT PRIMARY KEY,
+    last_known_path TEXT,
+    server_id TEXT,
+    resume_offset BIGINT,
+    line_number BIGINT,
+    resolved_date TIMESTAMP,
+    last_batch_id TEXT,
+    last_ingested_at TIMESTAMP,
+    total_events_written BIGINT
+);
+
+-- fathom-ps only (not in Python Fathom): the license servers this app monitors.
+CREATE TABLE IF NOT EXISTS monitored_servers (
+    server_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    license_spec TEXT,
+    log_path TEXT,
+    vendor TEXT,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT now(),
+    CHECK (license_spec IS NOT NULL OR log_path IS NOT NULL)
+);
