@@ -89,7 +89,11 @@ ON CONFLICT (server_id, daemon) DO UPDATE SET up = EXCLUDED.up, detail = EXCLUDE
             $query = @'
 UPDATE monitored_servers
 SET last_polled_at = @polled_at::timestamp, last_poll_status = @status, last_poll_message = @message
-WHERE server_id = @server_id
+WHERE server_id = @server_id;
+
+INSERT INTO poll_history (server_id, polled_at, status)
+VALUES (@server_id, @polled_at::timestamp, @status)
+ON CONFLICT DO NOTHING;
 '@
             $parameters = @{
                 server_id = $ServerId

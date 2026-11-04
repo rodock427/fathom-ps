@@ -32,7 +32,7 @@ Describe 'Sync-FathomLiveStatus' -Skip:(-not $env:FATHOM_TEST_DSN -or $IsWindows
     }
 
     BeforeEach {
-        $null = Invoke-SqlUpdate -ConnectionName Fathom -Query 'TRUNCATE live_status, feature_inventory, monitored_servers, usage_samples, live_sessions, vendor_daemon_status'
+        $null = Invoke-SqlUpdate -ConnectionName Fathom -Query 'TRUNCATE live_status, feature_inventory, monitored_servers, usage_samples, live_sessions, vendor_daemon_status, observed_sessions, poll_history'
     }
 
     It 'records live usage and seat limits for a server that is up' {
@@ -103,6 +103,18 @@ VALUES ('licsrv01', 'INVENTOR_PRO', 2, '2026-12-31'), ('licsrv01', 'MATLAB', 10,
         $null = Get-FathomServer | Sync-FathomLiveStatus -LmutilPath $fakeLmutil
 
         Invoke-SqlScalar -ConnectionName Fathom -Query 'SELECT count(*) FROM usage_samples' | Should -Be 6
+    }
+
+    It 'keeps one row per session across polls, and every poll in the history' {
+        $null = Register-FathomServer -ServerId licsrv01 -LicenseSpec 27000@detail
+        $null = Get-FathomServer | Sync-FathomLiveStatus -LmutilPath $fakeLmutil
+        Start-Sleep -Seconds 1
+        $null = Get-FathomServer | Sync-FathomLiveStatus -LmutilPath $fakeLmutil
+
+        $sessions = Get-Row 'SELECT * FROM observed_sessions'
+        $sessions | Should -HaveCount 5
+        $sessions | ForEach-Object { $_.last_seen_at | Should -BeGreaterThan $_.first_seen_at }
+        (Get-Row 'SELECT status FROM poll_history').status | Should -Be @('Degraded', 'Degraded')
     }
 
     It 'calls a server degraded when a vendor daemon is down' {

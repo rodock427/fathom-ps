@@ -133,3 +133,27 @@ CREATE TABLE IF NOT EXISTS vendor_daemon_status (
     captured_at TIMESTAMP NOT NULL,
     PRIMARY KEY (server_id, daemon)
 );
+
+-- Outcome of every lmstat poll, for uptime and "down for how long" (fathom-ps only).
+CREATE TABLE IF NOT EXISTS poll_history (
+    server_id TEXT NOT NULL,
+    polled_at TIMESTAMP NOT NULL,
+    status TEXT NOT NULL,
+    PRIMARY KEY (server_id, polled_at)
+);
+
+-- One row per checkout session seen by lmstat, so lmstat-only servers have session
+-- lengths and active users too. last_seen_at moves on every poll that still shows it.
+CREATE TABLE IF NOT EXISTS observed_sessions (
+    server_id TEXT NOT NULL,
+    feature TEXT NOT NULL,
+    "user" TEXT NOT NULL,
+    host TEXT NOT NULL,
+    handle TEXT NOT NULL,
+    started_at TIMESTAMP NOT NULL,
+    licenses INTEGER NOT NULL,
+    first_seen_at TIMESTAMP NOT NULL,
+    last_seen_at TIMESTAMP NOT NULL,
+    PRIMARY KEY (server_id, feature, "user", host, handle, started_at)
+);
+CREATE INDEX IF NOT EXISTS observed_sessions_user ON observed_sessions ("user");

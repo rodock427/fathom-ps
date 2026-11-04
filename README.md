@@ -95,3 +95,22 @@ Get-FathomServer -Enabled | Sync-FathomLiveStatus -LmutilPath 'C:\FlexLM\lmutil.
 # Lower level: parse lmstat output yourself
 & lmutil lmstat -a -c 27000@licsrv01 | ConvertFrom-FathomLmstat -ServerId licsrv01
 ```
+
+## Queries
+
+What the screens are built on. Each returns plain objects; the UI decides who sees which.
+
+| Command | Tier | Answers |
+|---|---|---|
+| `Get-FathomAvailability` | Reader | Free seats per feature, from each server's latest poll |
+| `Get-FathomServerHealth` | Reader | Healthy / Degraded / Down / Stale / Drifted, freshness, effective usage source |
+| `Get-FathomExpiry` | Reader | Features expiring within N days |
+| `Get-FathomUsageHistory` | Reader | Peak in use vs seats per time bucket |
+| `Get-FathomCapacityReport` | Operator | Peak, 95th percentile, time at capacity, denials, active users, underused |
+| `Get-FathomLicenseHolder` | Operator | Who holds seats now, flagging long sessions |
+| `Get-FathomDenial`, `Get-FathomUserUsage`, `Get-FathomActivity` | Operator | Denials, one user's history, recent log events |
+| `Get-FathomServerUptime` | Operator | Uptime and outages from the poll history |
+
+Usage numbers from the debug log match Python Fathom's `peak_concurrency` and `denial_rate` exactly
+(`tests/Metrics.Tests.ps1`, golden data from `tests/fixtures/generate_metric_golden.py`).
+
