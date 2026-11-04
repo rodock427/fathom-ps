@@ -1,0 +1,35 @@
+lmutil - Copyright (c) 1989-2021 Flexera. All Rights Reserved.
+Flexible License Manager status on Thu 8/20/2026 12:00
+
+License server status: 27000@license-server
+    License file(s) on license-server: /opt/flexlm/licenses/matlab.lic:
+
+license-server: license server UP (MASTER) v11.16
+
+Vendor daemon status (on license-server):
+
+   mlm: UP v11.16
+
+Feature usage info:
+
+Users of MATLAB:  (Total of 10 licenses issued;  Total of 3 licenses in use)
+
+  "MATLAB" v2025.0100, vendor: mlm, expiry: 1-jan-0000
+  floating license
+
+    bubbles workstation01 workstation01 (v2025.0) (license-server/27000 101), start Thu 8/20 12:05
+    blossom workstation02 workstation02 (v2025.0) (license-server/27000 102), start Thu 8/20 12:10
+    buttercup workstation03 workstation03 (v2025.0) (license-server/27000 103), start Thu 8/20 12:15
+
+Users of SIMULINK:  (Total of 5 licenses issued;  Total of 2 licenses in use)
+
+  "SIMULINK" v2025.0100, vendor: mlm, expiry: 1-jan-0000
+  floating license
+
+    blossom workstation02 workstation02 (v2025.0) (license-server/27000 104), start Thu 8/20 12:07
+    jbravo workstation04 workstation04 (v2025.0) (license-server/27000 105), start Thu 8/20 12:20
+
+Users of MATLAB_Distrib_Comp_Engine:  (Total of 32 licenses issued;  Total of 0 licenses in use)
+
+  "MATLAB_Distrib_Comp_Engine" v2025.0100, vendor: mlm, expiry: 1-jan-0000
+  floating license

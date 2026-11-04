@@ -1,0 +1,21 @@
+   09:00:00 (lmgrd) A line before any date marker uses the seeded date
+no leading time on this line at all
+09:00:01 (lmgrd) FLEXnet Licensing (v11.18.0.0 build 1) started on licsrv01 (Windows) (1/15/2026)
+	09:00:02 (lmgrd) Started adskflex (pid 4242)
+09:00:03 (adskflex) TIMESTAMP 1/15/2026
+9:05:00 (adskflex) OUT: "ACD_2026_0F" alice@WS-01 (1 license)
+9:06:00 (adskflex) OUT: "87545ACD_2026_0F" bob@ws-02.corp.local (12 licenses)
+09:07:00 (adskflex) IN: "ACD_2026_0F" alice@WS-01  
+
+   
+09:10:00 (adskflex) DENIED: "INVENTOR_PRO" carol@WS-03  (Licensed number of users already reached. (-4,342))
+09:11:00 (adskflex) QUEUED: "INVENTOR_PRO" dave@WS-04
+09:12:00 (adskflex) License for "RVT_2024" has Expired
+23:59:59 (adskflex) OUT: "ACD_2026_0F" éva@WS-05
+00:00:30 (adskflex) IN: "ACD_2026_0F" éva@WS-05
+00:01:00 (adskflex) TIMESTAMP 1/16/2026
+00:02:00 (lmgrd) Received signal 1 (Hangup). Re-reading license file.
+00:03:00 (adskflex) EXITING DUE TO SIGNAL 15
+00:03:01 (lmgrd) EXITING DUE TO SIGNAL 15
+00:03:02 (mlm) Vendor daemon mlm is exiting
+00:04:00 (lmgrd) shutdown

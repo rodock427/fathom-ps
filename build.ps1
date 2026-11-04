@@ -14,9 +14,18 @@ $ErrorActionPreference = 'Stop'
 
 if ($Task -in 'Lint', 'All') {
     $settings = Join-Path -Path $PSScriptRoot -ChildPath 'PSScriptAnalyzerSettings.psd1'
-    # Per file: PSScriptAnalyzer 1.25 crashes when recursing this tree itself.
-    $findings = Get-ChildItem -Path $PSScriptRoot -Recurse -File -Include '*.ps1', '*.psm1', '*.psd1' |
-        ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Settings $settings }
+    # Per file, with one retry: PSScriptAnalyzer 1.25 intermittently throws internal errors
+    # (NullReferenceException) shortly after startup. Findings are results, not exceptions,
+    # so a retry can't hide one.
+    $findings = Get-ChildItem -Path $PSScriptRoot -Recurse -File -Include '*.ps1', '*.psm1', '*.psd1' | ForEach-Object {
+        $analyzer = @{ Path = $_.FullName; Settings = $settings; ErrorAction = 'Stop' }
+        try {
+            Invoke-ScriptAnalyzer @analyzer
+        } catch {
+            Write-Warning "PSScriptAnalyzer crashed on $($_.TargetObject ?? $analyzer.Path); retrying once."
+            Invoke-ScriptAnalyzer @analyzer
+        }
+    }
     if ($findings) {
         $findings | Format-Table -AutoSize RuleName, Severity, ScriptName, Line, Message | Out-String | Write-Information -InformationAction Continue
         throw "PSScriptAnalyzer reported $($findings.Count) finding(s)."
