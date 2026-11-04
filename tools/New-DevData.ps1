@@ -223,7 +223,7 @@ try {
     # Read both sources once, as the PSU schedules would.
     $env:FAKE_LMUTIL_DIR = $devDir
     $null = Get-FathomServer -ServerId dev-licsrv | Sync-FathomDebugLog
-    $null = Get-FathomServer | Where-Object ServerId -In $owned | Sync-FathomLiveStatus -LmutilPath (Join-Path -Path $root -ChildPath 'tests/fakes/lmutil')
+    $null = Get-FathomServer | Where-Object ServerId -In $owned | Sync-FathomLiveStatus -LmutilPath (Join-Path -Path $root -ChildPath ($IsWindows ? 'tests/fakes/lmutil.cmd' : 'tests/fakes/lmutil'))
 
     # Mail to a folder, and Active Directory from the fake, both as dev PSU is set up.
     $null = Set-FathomAlertSetting -PickupDirectory (Join-Path -Path $devDir -ChildPath 'mail') -From fathom@dev.local -To you@dev.local

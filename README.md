@@ -11,6 +11,9 @@ installed on the license servers. PSU polls `lmstat` and reads the `lmgrd` debug
 - **Three access tiers**: totals for everyone, individuals for license admins and managers.
 - **Email alerts** and **Active Directory details**, both built in and off until you turn them on.
 
+**Deploying:** step-by-step guides for [Linux](docs/deployment/linux.md) and [Windows](docs/deployment/windows.md),
+from dev-only through real license servers to production.
+
 **Contents:** [How it works](#how-it-works) · [The app](#the-app) · [Set up on PSU](#set-up-on-a-psu-server) ·
 [Alerts](#alerts) · [Active Directory](#active-directory) · [Local development](#local-development) ·
 [Module](#the-module) · [Layout](#layout)
@@ -69,6 +72,8 @@ scripts), so `.universal/roles.ps1` gives the built-in roles to nobody. Local ac
 roles assigned to them directly.
 
 ## Set up on a PSU server
+
+The short version; the [deployment guides](docs/deployment/README.md) walk through it per OS.
 
 **Prerequisites:** PSU on Windows Server, with a **PSU license**: the developer license is for
 non-production use, and the app's per-page roles are a licensed feature. Run the service as a
@@ -142,30 +147,20 @@ Directory data is about individuals, so readers never see it.
 
 ## Local development
 
-Needs PowerShell 7.4+, Podman (or Docker), and the modules `SimplySql`, `Pester` 6,
-`PSScriptAnalyzer` and `Universal` (PSU's own, for rendering app pages in tests).
+The [Linux](docs/deployment/linux.md#1-dev-only) and [Windows](docs/deployment/windows.md#1-dev-only)
+guides cover installing everything. Once PowerShell 7.4+, Podman (or Docker), the modules
+(`SimplySql`, `Pester` 6, `PSScriptAnalyzer`, `Universal`) and a PSU ZIP are in place:
 
 ```bash
-# Postgres, plus an empty database for the tests
-podman run -d --name fathom-pg -p 127.0.0.1:5432:5432 \
-  -e POSTGRES_USER=license_manager -e POSTGRES_PASSWORD=license_manager -e POSTGRES_DB=license_manager \
-  docker.io/library/postgres:16-alpine
-podman exec fathom-pg psql -U license_manager -c 'CREATE DATABASE fathom_ps_test'
 export LM_POSTGRES_DSN=postgresql://license_manager:license_manager@localhost:5432/license_manager
-
-# A dev license server with the last 7 days of realistic use, ending now (-Big adds 400 features)
-./tools/New-DevData.ps1
-
-# PSU against this repo, with the fake lmutil and fake Active Directory
-FATHOM_LMUTIL=$PWD/tests/fakes/lmutil FAKE_LMUTIL_DIR=$PWD/.dev \
-FATHOM_AD_MODULE=$PWD/tests/fakes/ActiveDirectory/ActiveDirectory.psm1 \
-  ~/Documents/Projects/General/Powershell/Powershell-Universal/start-psu.sh "$PWD"
+pwsh ./tools/New-DevData.ps1                    # a dev license server with the last 7 days of use (-Big: 400 features)
+pwsh ./tools/Start-DevPsu.ps1 -PsuPath ~/psu    # PSU against this repo, fake lmutil and Active Directory
 ```
 
 `New-DevData.ps1` simulates the fake-AD users at their workstations and writes it as a real debug log
 (`.dev/debug.log`) plus the matching lmstat answer (`.dev/licsrv.txt`). Run it again before a demo to
-bring the data up to date; `-Remove` takes it away. Alert mail goes to `.dev/mail/`. Everything in
-`.dev/` is git-ignored.
+bring the data up to date; `-Remove` takes it away. `Start-DevPsu.ps1 -LmutilPath <lmutil>` polls real
+license servers instead. Alert mail goes to `.dev/mail/`, and everything in `.dev/` is git-ignored.
 
 **Lint and test:**
 
@@ -255,7 +250,8 @@ The repo root **is** the PSU repository, which is what PSU's Git sync points at.
 | `Scripts/` | The PSU jobs |
 | `Modules/Fathom/` | The module: all the logic, testable without PSU. PSU puts `Modules/` on its module path |
 | `Modules/Fathom/Sql/schema.sql` | Idempotent schema: Fathom's shared tables plus fathom-ps's own |
-| `tests/` | Pester tests, fixtures, and fakes for `lmutil` and Active Directory |
-| `tools/New-DevData.ps1` | Generates local dev data |
+| `tests/` | Pester tests, fixtures, and fakes for `lmutil` (bash and Windows) and Active Directory |
+| `tools/` | `New-DevData.ps1` generates local dev data; `Start-DevPsu.ps1` runs PSU against this repo |
+| `docs/deployment/` | Deployment guides for Linux and Windows |
 | `build.ps1` | Lint and test; CI runs exactly this |
 | `PLAN.md` | The V1 plan, design decisions and what's next |
