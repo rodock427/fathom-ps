@@ -15,10 +15,13 @@ FROM _ingest_manifest WHERE file_key = @file_key
 '@
     $saved = Invoke-FathomQuery -Query $query -Parameters @{ file_key = $FileKey }
 
+    # resolved_date holds the running date plus the last line's time of day (midnight = none).
+    $resolved = $saved.resolved_date
     [pscustomobject] @{
         Offset        = [long] $saved.resume_offset
         LineNumber    = [long] $saved.line_number
-        CurrentDate   = $saved.resolved_date
+        CurrentDate   = if ($resolved) { $resolved.Date } else { $null }
+        LastTime      = if ($resolved -and $resolved.TimeOfDay -ne [timespan]::Zero) { $resolved.TimeOfDay } else { $null }
         EventsWritten = [long] $saved.total_events_written
     }
 }

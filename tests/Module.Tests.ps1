@@ -60,3 +60,16 @@ Describe 'Connect-FathomDatabase' {
         }
     }
 }
+
+Describe 'Database errors' -Skip:(-not $env:FATHOM_TEST_DSN) {
+    It 'stop the command even when the caller''s ErrorAction is Continue' {
+        $ErrorActionPreference = 'Continue'
+        Connect-FathomDatabase -Dsn $env:FATHOM_TEST_DSN
+        try {
+            { InModuleScope Fathom { Invoke-SqlUpdate -ConnectionName Fathom -Query 'SELECT * FROM no_such_table' } } |
+                Should -Throw '*no_such_table*'
+        } finally {
+            Disconnect-FathomDatabase
+        }
+    }
+}

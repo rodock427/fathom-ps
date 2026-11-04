@@ -157,3 +157,13 @@ CREATE TABLE IF NOT EXISTS observed_sessions (
     PRIMARY KEY (server_id, feature, "user", host, handle, started_at)
 );
 CREATE INDEX IF NOT EXISTS observed_sessions_user ON observed_sessions ("user");
+
+-- The time span each ingested log file covers (fathom-ps only). Gaps between spans (before
+-- monitoring began, or lines lost to rotation) are where Auto falls back to lmstat.
+CREATE TABLE IF NOT EXISTS log_coverage (
+    file_key TEXT PRIMARY KEY,
+    server_id TEXT NOT NULL,
+    first_event_at TIMESTAMP NOT NULL,
+    last_event_at TIMESTAMP NOT NULL
+);
+CREATE INDEX IF NOT EXISTS log_coverage_server ON log_coverage (server_id);

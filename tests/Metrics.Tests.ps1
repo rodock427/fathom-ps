@@ -39,13 +39,13 @@ Describe 'Monitoring queries' -Skip:(-not $env:FATHOM_TEST_DSN) {
     }
 
     BeforeEach {
-        Invoke-Sql 'TRUNCATE license_events, _ingest_manifest, monitored_servers, live_status, feature_inventory, usage_samples, live_sessions, vendor_daemon_status, poll_history, observed_sessions'
+        Invoke-Sql 'TRUNCATE license_events, _ingest_manifest, monitored_servers, live_status, feature_inventory, usage_samples, live_sessions, vendor_daemon_status, poll_history, observed_sessions, log_coverage'
     }
 
     Context 'Parity with Python Fathom''s peak_concurrency and denial_rate' {
         BeforeEach {
             $log = Join-Path -Path $TestDrive -ChildPath 'emulator.log'
-            Copy-Item -Path (Join-Path -Path $PSScriptRoot -ChildPath 'fixtures/emulator.log') -Destination $log
+            Copy-Item -Path (Join-Path -Path $PSScriptRoot -ChildPath 'fixtures/emulator_day.log') -Destination $log
             $null = Register-FathomServer -ServerId parity -LogPath $log
             $null = Get-FathomServer | Sync-FathomDebugLog
         }
@@ -86,6 +86,56 @@ INSERT INTO usage_samples (server_id, feature, captured_at, licenses_issued, lic
             $history.BucketStart | Should -Be @([datetime] '2026-11-02 09:00', [datetime] '2026-11-02 11:00')
             $history.PeakInUse | Should -Be @(7, 2)
             $history.Issued | Should -Be @(10, 10)
+        }
+    }
+
+    Context 'Auto source, per bucket' {
+        It 'uses the log where it has coverage, lmstat in its gaps, and nothing where neither has data' {
+            # Log covers 09:00-10:00 only; lmstat has readings at 09:30 and 11:30; nothing at 12:00-13:00.
+            $log = Join-Path -Path $TestDrive -ChildPath 'auto.log'
+            @(
+                '09:00:00 (lmgrd) FLEXnet Licensing (v11) started on licsrv01 (Windows) (11/2/2026)'
+                '09:10:00 (mlm) OUT: "MATLAB" alice@ws01 (3 licenses)'
+                '09:59:00 (mlm) IN: "MATLAB" alice@ws01 (3 licenses)'
+            ) -join "`n" | Set-Content -Path $log
+            $null = Register-FathomServer -ServerId licsrv01 -LicenseSpec 27000@licsrv01 -LogPath $log
+            $null = Get-FathomServer | Sync-FathomDebugLog
+            Invoke-Sql @'
+INSERT INTO usage_samples (server_id, feature, captured_at, licenses_issued, licenses_in_use) VALUES
+('licsrv01', 'MATLAB', '2026-11-02 09:30', 10, 8), ('licsrv01', 'MATLAB', '2026-11-02 11:30', 10, 6)
+'@
+            $history = Get-FathomUsageHistory -ServerId licsrv01 -Source Auto -From '2026-11-02 09:00' -To '2026-11-02 13:00' -IntervalMinutes 60
+
+            $history | ForEach-Object { "$($_.BucketStart.Hour):$($_.Source):$($_.PeakInUse)" } |
+                Should -Be @('9:log:3', '11:lmstat:6')
+        }
+
+        It 'trusts a log ingested before coverage was recorded' {
+            $null = Register-FathomServer -ServerId licsrv01 -LicenseSpec 27000@licsrv01 -LogPath '/old/debug.log'
+            Invoke-Sql @'
+INSERT INTO license_events (event_id, event_type, timestamp, server_format, server_id, feature, "user", unit_count, raw_line, source_file, line_number, ingest_batch_id)
+VALUES ('o1', 'checkout', '2026-11-02 09:10', 'flexlm', 'licsrv01', 'MATLAB', 'alice', 2, 'x', 'x', 1, 'x')
+'@
+            $history = Get-FathomUsageHistory -ServerId licsrv01 -Source Auto -From '2026-11-02 09:00' -To '2026-11-02 10:00' -IntervalMinutes 60
+
+            $history.Source | Should -Be 'log'
+            $history.PeakInUse | Should -Be 2
+        }
+
+        It 'keeps trusting older history once coverage starts being recorded' {
+            $log = Join-Path -Path $TestDrive -ChildPath 'later.log'
+            "11:00:00 (lmgrd) FLEXnet Licensing (v11) started on licsrv01 (Windows) (11/2/2026)`n11:10:00 (mlm) OUT: `"MATLAB`" bob@ws02" | Set-Content -Path $log
+            $null = Register-FathomServer -ServerId licsrv01 -LicenseSpec 27000@licsrv01 -LogPath $log
+            # An event from before coverage existed, then a covered read starting at 11:00.
+            Invoke-Sql @'
+INSERT INTO license_events (event_id, event_type, timestamp, server_format, server_id, feature, "user", unit_count, raw_line, source_file, line_number, ingest_batch_id)
+VALUES ('o1', 'checkout', '2026-11-02 09:10', 'flexlm', 'licsrv01', 'MATLAB', 'alice', 2, 'x', 'x', 1, 'x')
+'@
+            $null = Get-FathomServer | Sync-FathomDebugLog
+
+            $history = Get-FathomUsageHistory -ServerId licsrv01 -Source Auto -From '2026-11-02 08:00' -To '2026-11-02 12:00' -IntervalMinutes 60
+
+            $history | ForEach-Object { "$($_.BucketStart.Hour):$($_.Source)" } | Should -Be @('9:log', '10:log', '11:log')
         }
     }
 
@@ -144,7 +194,7 @@ INSERT INTO usage_samples (server_id, feature, captured_at, licenses_issued, lic
             $drifted.LogDrift | Should -Be 5
             $drifted.EffectiveSource | Should -Be 'lmstat'
             $agreeing.Status | Should -Be 'Healthy'
-            $agreeing.EffectiveSource | Should -Be 'log'
+            $agreeing.EffectiveSource | Should -Be 'auto'
         }
 
         It 'uses the source a server is forced to' {

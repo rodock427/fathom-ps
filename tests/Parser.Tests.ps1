@@ -129,3 +129,39 @@ Describe 'Get-FathomLmstatHealth' {
         $health.Daemons[1].Detail | Should -BeLike 'The desired vendor daemon is down*'
     }
 }
+
+Describe 'Midnight rollover' {
+    It 'moves the date on when the clock wraps past midnight' {
+        $context = New-FathomParserContext @source -CurrentDate '2026-03-04'
+        $parsed = '23:59:00 (mlm) OUT: "MATLAB" alice@ws01', '00:01:00 (mlm) IN: "MATLAB" alice@ws01' |
+            ConvertFrom-FathomDebugLog -Context $context
+
+        $parsed.Timestamp | Should -Be @([datetime] '2026-03-04T23:59:00', [datetime] '2026-03-05T00:01:00')
+    }
+
+    It 'treats a small step back as a clock change, not a new day' {
+        $context = New-FathomParserContext @source -CurrentDate '2026-11-01'
+        $parsed = '01:59:00 (mlm) OUT: "MATLAB" alice@ws01', '01:05:00 (mlm) IN: "MATLAB" alice@ws01' |
+            ConvertFrom-FathomDebugLog -Context $context
+
+        $parsed[1].Timestamp | Should -Be ([datetime] '2026-11-01T01:05:00')
+    }
+
+    It 'notices a midnight that falls between two reads' {
+        $first = New-FathomParserContext @source -CurrentDate '2026-03-04'
+        $null = '23:58:00 (mlm) OUT: "MATLAB" alice@ws01' | ConvertFrom-FathomDebugLog -Context $first
+
+        $resumed = New-FathomParserContext @source -CurrentDate $first.CurrentDate -LastTime $first.LastTime -LineNumber $first.LineNumber
+        $parsed = '00:02:00 (mlm) IN: "MATLAB" alice@ws01' | ConvertFrom-FathomDebugLog -Context $resumed
+
+        $parsed.Timestamp | Should -Be ([datetime] '2026-03-05T00:02:00')
+    }
+
+    It 'takes a TIMESTAMP line''s date as given, without rolling over again' {
+        $context = New-FathomParserContext @source -CurrentDate '2026-03-04'
+        $parsed = '23:59:00 (mlm) OUT: "MATLAB" alice@ws01', '00:00:10 (mlm) TIMESTAMP 3/5/2026', '00:01:00 (mlm) IN: "MATLAB" alice@ws01' |
+            ConvertFrom-FathomDebugLog -Context $context
+
+        $parsed[1].Timestamp | Should -Be ([datetime] '2026-03-05T00:01:00')
+    }
+}

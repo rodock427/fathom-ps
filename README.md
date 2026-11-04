@@ -114,3 +114,10 @@ What the screens are built on. Each returns plain objects; the UI decides who se
 Usage numbers from the debug log match Python Fathom's `peak_concurrency` and `denial_rate` exactly
 (`tests/Metrics.Tests.ps1`, golden data from `tests/fixtures/generate_metric_golden.py`).
 
+**Usage source.** With `Auto` (the default) each time bucket uses the debug log where it has
+coverage and lmstat to fill its gaps, such as while a log share was unreachable. A log whose seat
+count has drifted from lmstat isn't used at all. `Set-FathomServer -UsageSource Log|Lmstat` forces one.
+
+**One deliberate difference from Fathom:** the parser moves the date on when the clock wraps past
+midnight (Fathom waits for the next `TIMESTAMP` line), so after-midnight lines aren't dated a day early.
+

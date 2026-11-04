@@ -34,7 +34,8 @@ ON CONFLICT (file_key) DO UPDATE SET
         server_id     = $Context.ServerId
         offset        = $Offset
         line_number   = $Context.LineNumber
-        resolved_date = if ($Context.CurrentDate) { $Context.CurrentDate.ToString('yyyy-MM-dd HH:mm:ss') } else { [DBNull]::Value }
+        # The date plus the last line's time of day, so the next read can notice midnight.
+        resolved_date = if ($Context.CurrentDate) { ($Context.CurrentDate.Date + ($Context.LastTime ?? [timespan]::Zero)) | ConvertTo-FathomSqlTime } else { [DBNull]::Value }
         batch_id      = $Context.BatchId
         events        = $EventsWritten
         ingested_at   = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')

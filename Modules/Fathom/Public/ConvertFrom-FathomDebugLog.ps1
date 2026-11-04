@@ -43,18 +43,21 @@ function ConvertFrom-FathomDebugLog {
             if ($match.Success) {
                 if ($rule.SetsDate) {
                     $Context.CurrentDate = [datetime]::ParseExact($match.Groups['date'].Value, 'M/d/yyyy', [cultureinfo]::InvariantCulture)
+                    # The line states its own date, so there's no midnight to detect.
+                    $Context.LastTime = $null
                 }
+                $timestamp = Resolve-FathomTimestamp -Context $Context -Time $match.Groups['time'].Value
                 if (-not $rule.EventType) {
                     continue
                 }
                 $fields.EventType = $rule.EventType
                 $fields.Match = $match
-                $fields.Timestamp = Resolve-FathomTimestamp -Date $Context.CurrentDate -Time $match.Groups['time'].Value
+                $fields.Timestamp = $timestamp
             } else {
                 $fields.EventType = 'unsupported'
                 $time = $script:LeadingTimeRegex.Match($raw)
                 $fields.Timestamp = if ($time.Success) {
-                    Resolve-FathomTimestamp -Date $Context.CurrentDate -Time $time.Groups['time'].Value
+                    Resolve-FathomTimestamp -Context $Context -Time $time.Groups['time'].Value
                 } elseif ($Context.CurrentDate) {
                     $Context.CurrentDate
                 } else {

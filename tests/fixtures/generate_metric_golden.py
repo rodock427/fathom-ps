@@ -4,7 +4,7 @@ Needs Fathom's virtualenv and a throwaway Postgres (it TRUNCATEs license_events)
 
     FATHOM_TEST_DSN=postgresql://... ../license_manager/.venv/bin/python tests/fixtures/generate_metric_golden.py
 
-Loads emulator.log with Fathom's parser and writer, then records peak_concurrency and
+Loads emulator_day.log (one day: see generate_golden.py) with Fathom's parser and writer, then records peak_concurrency and
 denial_rate for the windows in WINDOWS. tests/Metrics.Tests.ps1 loads the same log with
 fathom-ps and must get the same numbers.
 """
@@ -39,7 +39,7 @@ WINDOWS = {
 
 def main() -> None:
     dsn = os.environ["FATHOM_TEST_DSN"]
-    log = HERE / "emulator.log"
+    log = HERE / "emulator_day.log"
     context = ParserContext(
         source_file=log.name, source_file_hash="parity", server_id=SERVER_ID,
         ingest_batch_id="parity", current_date=datetime(2026, 1, 1),

@@ -154,6 +154,16 @@ Describe 'Monitored servers and log sync' -Skip:(-not $env:FATHOM_TEST_DSN) {
             Get-StoredEvent growing | Should -Be $expected
         }
 
+        It 'carries a midnight across reads through the saved position' {
+            $path = Register-TestServer licsrv01
+            Write-TestLog $path @('08:00:00 (lmgrd) FLEXnet Licensing (v11) started on licsrv01 (Windows) (3/4/2026)', '23:58:00 (mlm) OUT: "MATLAB" alice@ws01')
+            $null = Get-FathomServer | Sync-FathomDebugLog
+            Write-TestLog $path @('00:02:00 (mlm) IN: "MATLAB" alice@ws01') -Append
+            $null = Get-FathomServer | Sync-FathomDebugLog
+
+            (Get-StoredEvent licsrv01)[-1] | Should -BeLike '3|checkin|2026-03-05T00:02:00|*'
+        }
+
         It 'leaves a half-written line for the next run' {
             $path = Register-TestServer licsrv01
             Write-TestLog $path $fixture[0..9]
