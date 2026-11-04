@@ -68,6 +68,8 @@ LIMIT @limit
         user     = 'DisplayName', 'Department', 'Title', 'EmailAddress', 'Manager', 'Office'
         computer = 'Description', 'OperatingSystem', 'Location'
     }
+    # And which of those are also columns in lists of people.
+    $listedByDefault = @{ user = @('Department'); computer = @() }
     # Bookkeeping members of AD objects, not attributes.
     $meta = 'PropertyNames', 'AddedProperties', 'RemovedProperties', 'ModifiedProperties', 'PropertyCount', 'Item'
     $lookup = @{ Properties = '*'; ErrorAction = 'Stop' }
@@ -85,10 +87,17 @@ LIMIT @limit
     }
 
     $addAttribute = @'
-INSERT INTO ad_attributes (kind, name, recorded, shown, first_seen_at)
-VALUES (@kind, @name, @default, @default, @now::timestamp) ON CONFLICT DO NOTHING
+INSERT INTO ad_attributes (kind, name, recorded, shown, listed, first_seen_at)
+VALUES (@kind, @name, @default, @default, @listed, @now::timestamp) ON CONFLICT DO NOTHING
 '@
+    # A history row when a found object's recorded values differ from what was stored.
     $save = @'
+INSERT INTO ad_history (kind, name, attributes, changed_at)
+SELECT @kind, @name, @attributes::jsonb, @now::timestamp
+WHERE @found AND NOT EXISTS (
+    SELECT 1 FROM ad_objects WHERE kind = @kind AND name = @name AND attributes = @attributes::jsonb
+)
+ON CONFLICT (kind, name, changed_at) DO UPDATE SET attributes = EXCLUDED.attributes;
 INSERT INTO ad_objects (kind, name, found, attributes, fetched_at)
 VALUES (@kind, @name, @found, @attributes::jsonb, @now::timestamp)
 ON CONFLICT (kind, name) DO UPDATE SET found = EXCLUDED.found, attributes = EXCLUDED.attributes, fetched_at = EXCLUDED.fetched_at
@@ -115,7 +124,11 @@ ON CONFLICT (kind, name) DO UPDATE SET found = EXCLUDED.found, attributes = EXCL
                 if ($known[$entry.kind].Add($property.Name)) {
                     $default = $property.Name -in $defaults[$entry.kind]
                     $null = Invoke-FathomSql -Query $addAttribute -Parameters @{
-                        kind = $entry.kind; name = $property.Name; default = $default; now = $now | ConvertTo-FathomSqlTime
+                        kind    = $entry.kind
+                        name    = $property.Name
+                        default = $default
+                        listed  = $property.Name -in $listedByDefault[$entry.kind]
+                        now     = $now | ConvertTo-FathomSqlTime
                     }
                     $result.NewAttributes++
                     if ($default) { $null = $recorded[$entry.kind].Add($property.Name) }

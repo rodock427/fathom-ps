@@ -57,11 +57,15 @@ At `/fathom`, signed in. Each tier includes the ones before it; PSU's own `Admin
 
 | Page | FathomReader | FathomOperator | FathomAdmin |
 |---|---|---|---|
-| **Overview** | Free seats, server health, current alerts, licenses expiring soon | + denials in the last 24 hours | same |
-| **Server detail** | Charts of use against seats for the 8 busiest features (or any one), all features with their peaks, health, uptime; 24 hours to a year | + who holds a seat, denials, recent log activity | same |
-| **Capacity and renewal** | | Peak, typical (P95), time at capacity, denials, users denied, active users, underused features; export to CSV or Excel | same |
-| **People** | | Who holds a seat now (long sessions flagged), one user's last 90 days, their Active Directory details | same |
+| **Overview** | Free seats, server health, current alerts, licenses expiring soon | + denials in a chosen period | same |
+| **Server detail** | Tabs: use against seats charted for the 8 busiest features (or any one); every feature with its peak; health and uptime | + tabs for who holds a seat, denials, and recent log activity | same |
+| **People** | | Who holds a seat now (long sessions flagged), and search by name. One person: their Active Directory details, then tabs for sessions, log events and directory changes | same |
+| **Reports > Seat planning** | | Per feature: peak, typical (P95), time at capacity, denials, users denied, active users, underused; one server or all; export to CSV or Excel | same |
 | **Administration** | | | Add, edit, pause and poll servers; alert settings; Active Directory settings and attributes |
+
+Every page with history takes a period: preset buttons (24 hours to a year) or a custom From/To
+range to the minute. Charts pick their detail from the length of the period. Long lists scroll
+inside their card and can be searched.
 
 **Individual data never reaches a browser that shouldn't see it.** Pages are hidden from roles below
 their tier, and each page checks the tier again in its own script. `tests/App.Tests.ps1` renders every
@@ -141,8 +145,12 @@ every `RefreshHours` (24).
   and office (for hosts: description, OS and location) start recorded; everything else starts off.
   Turning recording off deletes that attribute's values at once; turning it on fills them in at the
   next lookup.
-- **Shown** attributes appear to operators and admins on the People page: in a user's lookup, and as
-  columns of who holds a seat now. Showing an attribute records it.
+- **Shown** attributes appear to operators and admins on a person's page. Showing records.
+- **In lists** attributes are also columns in the list of who holds a seat (Department, to start
+  with). Listing shows. Turning any switch off turns off the ones that need it.
+- **History:** each change to a person's recorded values is kept with its date (People > a person >
+  Directory changes), so past use can be put down to the department someone was in then. Turning
+  recording off deletes the attribute's history too.
 
 Directory data is about individuals, so readers never see it.
 
@@ -218,7 +226,8 @@ Each returns plain objects; the app decides who sees which.
 | `Get-FathomCapacityReport` | Operator | Peak, 95th percentile, time at capacity, denials, active users, underused |
 | `Get-FathomLicenseHolder` | Operator | Who holds a seat now, flagging long sessions |
 | `Get-FathomDenial`, `Get-FathomUserUsage`, `Get-FathomActivity` | Operator | Denials, one user's history, recent log events |
-| `Get-FathomDirectoryObject` | Operator | What Active Directory says about users or hosts |
+| `Get-FathomDirectoryObject`, `Get-FathomDirectoryHistory` | Operator | What Active Directory says about users or hosts, now and over time |
+| `Find-FathomUser` | Operator | Users matching a name or username |
 
 `Get-Help <command>` has the details for every command.
 

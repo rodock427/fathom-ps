@@ -27,7 +27,9 @@ podman compose exec fathom pwsh /app/tools/New-DevData.ps1 -Force    # a dev lic
 Open http://localhost:5000/fathom and sign in as `admin` with the password in `.env`. The stack
 starts in demo mode, with the fake `lmutil` and fake Active Directory, so everything works offline.
 
-- **After changing code:** `podman compose up -d --build`. The database and PSU's data are kept.
+- **After changing code:** `podman compose build && podman compose down && podman compose up -d`. The database
+  and PSU's data are kept. (podman-compose doesn't replace a running container when only its image
+  changed; with Docker, `docker compose up -d --build` is enough.)
 - **Fresh data for a demo:** run the `New-DevData.ps1` line again.
 - **Another port:** `FATHOM_PORT=8080` in `.env`.
 - **Start over:** `podman compose down -v` deletes both volumes, and with them all data.

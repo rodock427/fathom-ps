@@ -230,6 +230,9 @@ CREATE TABLE IF NOT EXISTS ad_attributes (
     CHECK (recorded OR NOT shown)
 );
 
+-- Shown attributes can also be columns in lists of people (Department, by default).
+ALTER TABLE ad_attributes ADD COLUMN IF NOT EXISTS listed BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- Directory lookups: one row, off by default.
 CREATE TABLE IF NOT EXISTS ad_settings (
     id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -240,3 +243,17 @@ CREATE TABLE IF NOT EXISTS ad_settings (
     updated_at TIMESTAMP
 );
 INSERT INTO ad_settings (id) VALUES (1) ON CONFLICT DO NOTHING;
+
+-- Each change to a user's or host's recorded Active Directory values, as the full set from that
+-- time on (fathom-ps only). Unrecording an attribute removes it here too.
+CREATE TABLE IF NOT EXISTS ad_history (
+    kind TEXT NOT NULL CHECK (kind IN ('user', 'computer')),
+    name TEXT NOT NULL,
+    attributes JSONB NOT NULL,
+    changed_at TIMESTAMP NOT NULL,
+    PRIMARY KEY (kind, name, changed_at)
+);
+-- Objects looked up before history was kept start it with their current values.
+INSERT INTO ad_history (kind, name, attributes, changed_at)
+SELECT o.kind, o.name, o.attributes, o.fetched_at FROM ad_objects o
+WHERE o.found AND NOT EXISTS (SELECT 1 FROM ad_history h WHERE h.kind = o.kind AND h.name = o.name);

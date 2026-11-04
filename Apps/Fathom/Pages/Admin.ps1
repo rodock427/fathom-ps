@@ -149,8 +149,9 @@ Use-FathomDatabase {
     New-UDCard -Title 'Active Directory' -Content {
         New-UDTypography -Variant body2 -Text (
             'Looks up each FlexLM user and host in Active Directory every hour. Every attribute it returns is listed ' +
-            'below: only recorded ones are stored, and shown ones appear to license administrators and managers ' +
-            '(People page). Turning recording off deletes that attribute''s stored values.')
+            'below: only recorded ones are stored; shown ones appear on a person''s page for license administrators ' +
+            'and managers, and those in lists also as columns of who holds a seat. Turning recording off deletes ' +
+            'that attribute''s stored values.')
         New-UDForm -Id 'admin-directory' -SubmitText 'Save' -Children {
             New-UDSwitch -Id 'directoryEnabled' -Label 'Look up users and hosts' -Checked $directory.Enabled
             New-UDTextbox -Id 'directoryServer' -Label 'Domain controller or domain (blank for this server''s own)' -Value $directory.Server
@@ -180,13 +181,13 @@ Use-FathomDatabase {
             if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { return }
             . $common
             $rows = Use-FathomDatabase { Get-FathomDirectoryAttribute } | ForEach-Object {
-                [pscustomobject] @{ Kind = $_.Kind; Name = $_.Name; Recorded = $_.Recorded; Shown = $_.Shown }
+                [pscustomobject] @{ Kind = $_.Kind; Name = $_.Name; Recorded = $_.Recorded; Shown = $_.Shown; Listed = $_.Listed }
             }
             # Runs in PSU's scope (see New-FathomTable): the handlers use only the row and Fathom commands.
             $table = @{
                 Id      = 'admin-directory-attribute-table'
                 Data    = $rows
-                Columns = [ordered] @{ Name = 'Attribute'; Kind = 'Of'; Recorded = 'Recorded'; Shown = 'Shown' }
+                Columns = [ordered] @{ Name = 'Attribute'; Kind = 'Of'; Recorded = 'Recorded'; Shown = 'Shown'; Listed = 'In lists' }
                 Render  = @{
                     Recorded = { $attribute = $EventData; New-UDSwitch -Checked $attribute.Recorded -OnChange {
                             if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { throw 'Not authorized.' }
@@ -196,6 +197,11 @@ Use-FathomDatabase {
                     Shown    = { $attribute = $EventData; New-UDSwitch -Checked $attribute.Shown -OnChange {
                             if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { throw 'Not authorized.' }
                             $null = Use-FathomDatabase { Set-FathomDirectoryAttribute -Kind $attribute.Kind -Name $attribute.Name -Shown ($EventData -in $true, 'true') }
+                            Sync-UDElement -Id 'admin-directory-attributes'
+                        } }
+                    Listed   = { $attribute = $EventData; New-UDSwitch -Checked $attribute.Listed -OnChange {
+                            if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { throw 'Not authorized.' }
+                            $null = Use-FathomDatabase { Set-FathomDirectoryAttribute -Kind $attribute.Kind -Name $attribute.Name -Listed ($EventData -in $true, 'true') }
                             Sync-UDElement -Id 'admin-directory-attributes'
                         } }
                 }

@@ -1,7 +1,7 @@
 function Get-FathomDirectoryAttribute {
     <#
     .SYNOPSIS
-        Every attribute the directory has returned, and whether its values are recorded and shown.
+        Every attribute the directory has returned, and whether its values are recorded, shown and in lists.
     .EXAMPLE
         Get-FathomDirectoryAttribute -Kind user | Where-Object Shown
     #>
@@ -20,6 +20,7 @@ function Get-FathomDirectoryAttribute {
             Name       = $row.name
             Recorded   = $row.recorded
             Shown      = $row.shown
+            Listed     = $row.listed
             FirstSeen  = $row.first_seen_at
         }
     }
