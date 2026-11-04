@@ -11,7 +11,7 @@ BeforeDiscovery {
 
 BeforeAll {
     Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
-    $PSDefaultParameterValues['*-Sql*:ConnectionName'] = InModuleScope Fathom { $script:ConnectionName }
+    . (Join-Path -Path $PSScriptRoot -ChildPath 'TestSql.ps1')
     $pages = Join-Path -Path $PSScriptRoot -ChildPath '../Apps/Fathom/Pages'
 
     # A page renders as PSU would run it: $Roles and $Query set, the components as output.

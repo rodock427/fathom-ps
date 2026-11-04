@@ -45,7 +45,7 @@ ON CONFLICT (server_id, feature) DO UPDATE SET
         expiry          = if ($Status.Expiry) { $Status.Expiry.ToString('yyyy-MM-dd') } else { [DBNull]::Value }
         expiry_reported = $Status.ExpiryReported
     }
-    $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $query -Parameters $parameters
+    $null = Invoke-FathomSql -Query $query -Parameters $parameters
 
     $holderQuery = @'
 INSERT INTO live_sessions (server_id, feature, "user", host, display, version, handle, licenses, started_at, captured_at)
@@ -69,6 +69,6 @@ ON CONFLICT (server_id, feature, "user", host, handle, started_at) DO UPDATE SET
             started_at  = if ($holder.StartedAt) { $holder.StartedAt.ToString('yyyy-MM-dd HH:mm:ss') } else { [DBNull]::Value }
             captured_at = $parameters.captured_at
         }
-        $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $holderQuery -Parameters $holderParameters
+        $null = Invoke-FathomSql -Query $holderQuery -Parameters $holderParameters
     }
 }

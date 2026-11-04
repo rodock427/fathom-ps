@@ -45,7 +45,7 @@ UPDATE ad_attributes SET recorded = @recorded, shown = @shown WHERE kind = @kind
 UPDATE ad_objects SET attributes = attributes - @name WHERE kind = @kind AND NOT @recorded;
 UPDATE ad_objects SET fetched_at = '-infinity' WHERE kind = @kind AND @newly;
 '@
-            $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $update -Parameters $parameters
+            $null = Invoke-FathomSql -Query $update -Parameters $parameters
         }
         Get-FathomDirectoryAttribute -Kind $Kind | Where-Object Name -EQ $Name
     }

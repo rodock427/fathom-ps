@@ -5,8 +5,7 @@ param()
 
 BeforeAll {
     Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
-    # The module names its connection per import; send the tests' own SQL calls there too.
-    $PSDefaultParameterValues['*-Sql*:ConnectionName'] = InModuleScope Fathom { $script:ConnectionName }
+    . (Join-Path -Path $PSScriptRoot -ChildPath 'TestSql.ps1')
 
     function Invoke-Sql([string] $Query, [hashtable] $Parameters = @{}) {
         $null = Invoke-SqlUpdate -Query $Query -Parameters $Parameters

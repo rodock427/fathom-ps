@@ -17,7 +17,7 @@ function Use-FathomDatabase {
         [string] $Dsn = (Get-FathomDefaultDsn)
     )
 
-    if (Test-SqlConnection -ConnectionName $script:ConnectionName) {
+    if ($script:Sessions.ContainsKey((Get-FathomConnectionName))) {
         return & $ScriptBlock
     }
 

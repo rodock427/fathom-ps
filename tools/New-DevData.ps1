@@ -9,7 +9,7 @@
     registers the server and reads both once, so the app has data straight away.
 
     Only touches its own servers, dev-licsrv and dev-big, and starts them over on every run.
-    Refuses a database that isn't on this machine.
+    Refuses a database that isn't on this machine, unless -Force.
 .EXAMPLE
     ./tools/New-DevData.ps1                   # dev-licsrv, the last 7 days
 .EXAMPLE
@@ -42,6 +42,10 @@ param(
     # Same seed, same history (relative to now).
     [int] $Seed = 42,
 
+    # Write to a database that isn't on this machine: only one that's yours to fill, such as the
+    # compose stack's own (podman compose exec fathom pwsh /app/tools/New-DevData.ps1 -Force).
+    [switch] $Force,
+
     # Where the generated log, lmstat answers and alert mail go.
     [string] $DevDirectory = (Join-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -ChildPath '.dev')
 )
@@ -51,8 +55,8 @@ $root = Split-Path -Path $PSScriptRoot -Parent
 $devDir = $DevDirectory
 Import-Module (Join-Path -Path $root -ChildPath 'Modules/Fathom/Fathom.psd1') -Force
 
-if ($Dsn -notmatch '@(localhost|127\.0\.0\.1|\[::1\])[:/]') {
-    throw 'New-DevData only writes to a database on this machine (localhost in the DSN).'
+if (-not $Force -and $Dsn -notmatch '@(localhost|127\.0\.0\.1|\[::1\])[:/]') {
+    throw 'New-DevData only writes to a database on this machine (localhost in the DSN). -Force overrides.'
 }
 
 $owned = 'dev-licsrv', 'dev-big'
@@ -65,7 +69,7 @@ function Remove-DevServer {
         $tables = 'license_events', 'usage_samples', 'live_status', 'live_sessions', 'observed_sessions',
         'poll_history', 'vendor_daemon_status', 'feature_inventory', 'alert_state', 'log_coverage'
         foreach ($table in $tables) {
-            $null = Invoke-SqlUpdate -ConnectionName (Get-DevConnection) -Query "DELETE FROM $table WHERE server_id = @id" -Parameters @{ id = $id }
+            $null = Invoke-DevSql -Query "DELETE FROM $table WHERE server_id = @id" -Parameters @{ id = $id }
         }
         if (Get-FathomServer -ServerId $id) {
             Unregister-FathomServer -ServerId $id -Confirm:$false
@@ -73,8 +77,16 @@ function Remove-DevServer {
     }
 }
 
-function Get-DevConnection {
-    InModuleScope Fathom { $script:ConnectionName }
+function Invoke-DevSql([string] $Query, [hashtable] $Parameters = @{}, [int] $CommandTimeout = 30, [switch] $Rows) {
+    # On the module's own connection, through its own (private) SQL helpers.
+    & (Get-Module -Name Fathom) {
+        param($Query, $Parameters, $CommandTimeout, $Rows)
+        if ($Rows) {
+            Invoke-FathomQuery -Query $Query -Parameters $Parameters -CommandTimeout $CommandTimeout
+        } else {
+            Invoke-FathomSql -Query $Query -Parameters $Parameters -CommandTimeout $CommandTimeout
+        }
+    } $Query $Parameters $CommandTimeout $Rows
 }
 
 # Working-hours sessions for every user on every day, turned into checkouts, checkins and denials.
@@ -179,12 +191,12 @@ FROM (SELECT f, CASE WHEN f % 10 = 0 THEN 500 ELSE 1 + (f * 37) % 60 END AS seat
 '@
     $now = Get-Date
     $parameters = @{ features = $Features; from = $now.AddDays(-$Days).ToString('s'); to = $now.ToString('s') }
-    $null = Invoke-SqlUpdate -ConnectionName (Get-DevConnection) -Query $samples -Parameters $parameters -CommandTimeout 1800
+    $null = Invoke-DevSql -Query $samples -Parameters $parameters -CommandTimeout 1800
 
     # The lmstat answer: each feature's latest sample, no holders.
     $latest = 'SELECT DISTINCT ON (feature) feature, licenses_issued, licenses_in_use FROM usage_samples WHERE server_id = ''dev-big'' ORDER BY feature, captured_at DESC'
     $text = [Text.StringBuilder]::new("lmutil - Copyright (c) 1989-2024 Flexera. All Rights Reserved.`n`nLicense server status: 27000@big`n`n      big: license server UP (MASTER) v11.19.4`n`nVendor daemon status (on big):`n`n bigvendor: UP v11.19.4`n`nFeature usage info:`n`n")
-    foreach ($row in Invoke-SqlQuery -ConnectionName (Get-DevConnection) -Query $latest) {
+    foreach ($row in Invoke-DevSql -Query $latest -Rows) {
         $null = $text.AppendLine("Users of $($row.feature):  (Total of $($row.licenses_issued) licenses issued;  Total of $($row.licenses_in_use) licenses in use)`n")
         $null = $text.AppendLine("  `"$($row.feature)`" v1.0, vendor: bigvendor, expiry: permanent`n  floating license`n")
     }

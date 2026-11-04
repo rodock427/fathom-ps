@@ -9,6 +9,6 @@ function Initialize-FathomSchema {
     $ddl = Get-Content -Raw -LiteralPath (Join-Path -Path $script:SqlPath -ChildPath 'schema.sql')
 
     if ($PSCmdlet.ShouldProcess('Fathom database', 'Create missing tables')) {
-        $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $ddl
+        $null = Invoke-FathomSql -Query $ddl
     }
 }

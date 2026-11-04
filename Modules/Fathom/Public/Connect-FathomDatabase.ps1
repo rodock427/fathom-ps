@@ -2,6 +2,9 @@ function Connect-FathomDatabase {
     <#
     .SYNOPSIS
         Opens the Postgres connection that every other Fathom command uses.
+    .DESCRIPTION
+        One connection per runspace: PSU runs jobs and app pages side by side in one process,
+        and each gets its own.
     .EXAMPLE
         Connect-FathomDatabase -Dsn 'postgresql://fathom:secret@db01:5432/license_manager'
     #>
@@ -17,13 +20,13 @@ function Connect-FathomDatabase {
     }
 
     # Reconnecting replaces the old connection, so a changed DSN always wins.
-    if (Test-SqlConnection -ConnectionName $script:ConnectionName) {
-        Close-SqlConnection -ConnectionName $script:ConnectionName
+    Disconnect-FathomDatabase
+    $connection = New-FathomNpgsqlConnection -ConnectionString (ConvertTo-NpgsqlConnectionString -Dsn $Dsn)
+    try {
+        $connection.Open()
+    } catch {
+        $connection.Dispose()
+        throw
     }
-
-    $connection = @{
-        ConnectionName   = $script:ConnectionName
-        ConnectionString = ConvertTo-NpgsqlConnectionString -Dsn $Dsn
-    }
-    Open-PostGreConnection @connection
+    $script:Sessions[(Get-FathomConnectionName)] = [pscustomobject] @{ Connection = $connection; Transaction = $null }
 }

@@ -37,7 +37,7 @@ function Set-FathomDirectorySetting {
     if ($PSCmdlet.ShouldProcess('Fathom directory settings', "Set $($assignments -join ', ')")) {
         # Column names come from the fixed map above, never from input; values are parameters.
         $query = "UPDATE ad_settings SET $($assignments -join ', '), updated_at = @updated_at::timestamp WHERE id = 1"
-        $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $query -Parameters $parameters
+        $null = Invoke-FathomSql -Query $query -Parameters $parameters
     }
     Get-FathomDirectorySetting
 }

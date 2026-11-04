@@ -5,7 +5,7 @@ param()
 
 BeforeAll {
     Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
-    $PSDefaultParameterValues['*-Sql*:ConnectionName'] = InModuleScope Fathom { $script:ConnectionName }
+    . (Join-Path -Path $PSScriptRoot -ChildPath 'TestSql.ps1')
 }
 
 Describe 'Directory values' {

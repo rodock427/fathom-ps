@@ -114,7 +114,7 @@ ON CONFLICT (kind, name) DO UPDATE SET found = EXCLUDED.found, attributes = EXCL
                 }
                 if ($known[$entry.kind].Add($property.Name)) {
                     $default = $property.Name -in $defaults[$entry.kind]
-                    $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $addAttribute -Parameters @{
+                    $null = Invoke-FathomSql -Query $addAttribute -Parameters @{
                         kind = $entry.kind; name = $property.Name; default = $default; now = $now | ConvertTo-FathomSqlTime
                     }
                     $result.NewAttributes++
@@ -129,7 +129,7 @@ ON CONFLICT (kind, name) DO UPDATE SET found = EXCLUDED.found, attributes = EXCL
             $result.NotFound++
         }
 
-        $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $save -Parameters @{
+        $null = Invoke-FathomSql -Query $save -Parameters @{
             kind       = $entry.kind
             name       = $entry.name
             found      = [bool] $object

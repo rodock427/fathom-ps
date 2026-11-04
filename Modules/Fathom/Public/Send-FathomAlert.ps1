@@ -35,7 +35,7 @@ function Send-FathomAlert {
     $now = Get-Date | ConvertTo-FathomSqlTime
     $active = @(Get-FathomAlert)
 
-    Start-SqlTransaction -ConnectionName $script:ConnectionName
+    Start-FathomTransaction
     try {
         # An alert that comes back after clearing starts over as new.
         $upsert = @'
@@ -61,14 +61,14 @@ ON CONFLICT (alert_key) DO UPDATE SET
                 since     = if ($alert.Since) { $alert.Since | ConvertTo-FathomSqlTime } else { [DBNull]::Value }
                 now       = $now
             }
-            $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $upsert -Parameters $parameters
+            $null = Invoke-FathomSql -Query $upsert -Parameters $parameters
         }
 
         $resolve = 'UPDATE alert_state SET resolved_at = @now::timestamp WHERE resolved_at IS NULL AND NOT (alert_key = ANY(@keys))'
-        $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $resolve -Parameters @{ now = $now; keys = [string[]] @($active.Key) }
-        Complete-SqlTransaction -ConnectionName $script:ConnectionName
+        $null = Invoke-FathomSql -Query $resolve -Parameters @{ now = $now; keys = [string[]] @($active.Key) }
+        Complete-FathomTransaction
     } catch {
-        Undo-SqlTransaction -ConnectionName $script:ConnectionName
+        Undo-FathomTransaction
         throw
     }
 
@@ -140,7 +140,7 @@ ORDER BY CASE severity WHEN 'Critical' THEN 0 WHEN 'Warning' THEN 1 ELSE 2 END, 
 UPDATE alert_state SET last_notified_at = @now::timestamp WHERE resolved_at IS NULL AND alert_key = ANY(@keys);
 UPDATE alert_state SET resolution_notified = TRUE WHERE resolved_at IS NOT NULL AND alert_key = ANY(@keys);
 '@
-    $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $sent -Parameters @{ now = $now; keys = [string[]] @($pending.alert_key) }
+    $null = Invoke-FathomSql -Query $sent -Parameters @{ now = $now; keys = [string[]] @($pending.alert_key) }
     $run.Sent = $true
     $run
 }
