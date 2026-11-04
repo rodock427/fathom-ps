@@ -61,12 +61,32 @@ Describe 'Connect-FathomDatabase' {
     }
 }
 
+Describe 'Values read from Postgres' {
+    It 'turns a date into a DateTime, whichever way Npgsql was configured' {
+        InModuleScope Fathom {
+            $date = ConvertFrom-FathomDbValue -Value ([DateOnly]::new(2027, 3, 31))
+            $date | Should -BeOfType [datetime]
+            ($date - [datetime] '2027-03-01').TotalDays | Should -Be 30
+        }
+    }
+
+    It 'turns NULL into $null and keeps an array an array' {
+        InModuleScope Fathom {
+            ConvertFrom-FathomDbValue -Value ([DBNull]::Value) | Should -BeNullOrEmpty
+            , (ConvertFrom-FathomDbValue -Value ([string[]] @('one'))) | Should -BeOfType [string[]]
+        }
+    }
+}
+
 Describe 'Database errors' -Skip:(-not $env:FATHOM_TEST_DSN) {
-    It 'stop the command even when the caller''s ErrorAction is Continue' {
+    It 'stop the caller even when its ErrorAction is Continue' {
         $ErrorActionPreference = 'Continue'
         Connect-FathomDatabase -Dsn $env:FATHOM_TEST_DSN
         try {
-            { InModuleScope Fathom { Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query 'SELECT * FROM no_such_table' } } |
+            # A failed write must never be followed by the next one.
+            { InModuleScope Fathom { Invoke-FathomSql -Query 'SELECT * FROM no_such_table'; throw 'carried on' } } |
+                Should -Throw '*no_such_table*'
+            { InModuleScope Fathom { Invoke-FathomQuery -Query 'SELECT * FROM no_such_table'; throw 'carried on' } } |
                 Should -Throw '*no_such_table*'
         } finally {
             Disconnect-FathomDatabase
@@ -76,19 +96,22 @@ Describe 'Database errors' -Skip:(-not $env:FATHOM_TEST_DSN) {
 
 Describe 'Concurrent jobs in one process' -Skip:(-not $env:FATHOM_TEST_DSN) {
     It 'keep separate connections, as PSU''s in-process jobs need' {
-        # Thread jobs share one process, like PSU's integrated environment: SimplySql's
-        # connection registry is shared, so a fixed connection name would collide.
+        # Thread jobs share one process, like PSU's integrated environment and its app pages.
+        # SimplySql's connection registry wasn't thread-safe: concurrent connects corrupted it
+        # for the whole process. Each runspace now keeps its own Npgsql connection.
         $manifest = Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1'
         $dsn = $env:FATHOM_TEST_DSN
-        $jobs = 1..6 | ForEach-Object {
-            Start-ThreadJob -ScriptBlock {
+        $jobs = 1..12 | ForEach-Object {
+            Start-ThreadJob -ThrottleLimit 12 -ScriptBlock {
                 $ErrorActionPreference = 'Stop'
                 Import-Module $using:manifest
-                Connect-FathomDatabase -Dsn $using:dsn
-                try {
-                    @(Get-FathomServer).Count
-                } finally {
-                    Disconnect-FathomDatabase
+                for ($i = 0; $i -lt 5; $i++) {
+                    Connect-FathomDatabase -Dsn $using:dsn
+                    try {
+                        $null = @(Get-FathomServer)
+                    } finally {
+                        Disconnect-FathomDatabase
+                    }
                 }
             }
         }
@@ -96,4 +119,3 @@ Describe 'Concurrent jobs in one process' -Skip:(-not $env:FATHOM_TEST_DSN) {
         { $jobs | Receive-Job -Wait -AutoRemoveJob -ErrorAction Stop } | Should -Not -Throw
     }
 }
-

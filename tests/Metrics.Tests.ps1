@@ -5,8 +5,7 @@ param()
 
 BeforeAll {
     Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
-    # The module names its connection per import; send the tests' own SQL calls there too.
-    $PSDefaultParameterValues['*-Sql*:ConnectionName'] = InModuleScope Fathom { $script:ConnectionName }
+    . (Join-Path -Path $PSScriptRoot -ChildPath 'TestSql.ps1')
     $golden = Get-Content -Raw -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath 'fixtures/metrics.golden.json') |
         ConvertFrom-Json -AsHashtable
 

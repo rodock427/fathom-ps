@@ -87,16 +87,16 @@ function Read-FathomDebugLog {
             $lines = $lines[0..($lines.Count - 2)]
             $events = @($lines | ConvertFrom-FathomDebugLog -Context $context)
 
-            Start-SqlTransaction -ConnectionName $script:ConnectionName
+            Start-FathomTransaction
             try {
                 $written = Write-FathomLicenseEvent -InputObject $events
                 $eventsWritten += $written
                 $offset = $result.Offset + $end + 1
                 Save-FathomReadPosition -FileKey $fileKey -Path $LogPath -Offset $offset -EventsWritten $eventsWritten -Context $context
                 Save-FathomLogCoverage -FileKey $fileKey -ServerId $ServerId -InputObject $events
-                Complete-SqlTransaction -ConnectionName $script:ConnectionName
+                Complete-FathomTransaction
             } catch {
-                Undo-SqlTransaction -ConnectionName $script:ConnectionName
+                Undo-FathomTransaction
                 throw
             }
 

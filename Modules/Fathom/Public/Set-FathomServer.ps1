@@ -73,7 +73,7 @@ function Set-FathomServer {
         # Column names come from the fixed map above, never from input; values are parameters.
         $query = "UPDATE monitored_servers SET $($assignments -join ', ') WHERE server_id = @server_id"
         try {
-            $updated = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $query -Parameters $parameters
+            $updated = Invoke-FathomSql -Query $query -Parameters $parameters
         } catch {
             # 23514 is Postgres's check_violation: both sources cleared.
             if ($_.Exception.Message -match '23514') {

@@ -51,7 +51,7 @@ WHERE server_id = @server_id
             status    = $result.Status
             error     = $result.Message ?? [DBNull]::Value
         }
-        $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $query -Parameters $parameters
+        $null = Invoke-FathomSql -Query $query -Parameters $parameters
 
         # Problems are non-terminating: one unreachable share mustn't stop the other servers.
         switch ($result.Status) {

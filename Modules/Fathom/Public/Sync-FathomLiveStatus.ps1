@@ -60,11 +60,11 @@ function Sync-FathomLiveStatus {
             'Down', ($reason ?? "lmutil exited with code $($run.ExitCode).").Trim()
         }
 
-        Start-SqlTransaction -ConnectionName $script:ConnectionName
+        Start-FathomTransaction
         try {
             # Holders and daemon states are "as of this poll": a server that's down holds nothing.
             $clear = 'DELETE FROM live_sessions WHERE server_id = @server_id; DELETE FROM vendor_daemon_status WHERE server_id = @server_id;'
-            $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $clear -Parameters @{ server_id = $ServerId }
+            $null = Invoke-FathomSql -Query $clear -Parameters @{ server_id = $ServerId }
 
             foreach ($feature in $statuses) {
                 Save-FathomFeatureStatus -Status $feature
@@ -83,7 +83,7 @@ ON CONFLICT (server_id, daemon) DO UPDATE SET up = EXCLUDED.up, detail = EXCLUDE
                     detail      = $daemon.Detail
                     captured_at = $polledAt.ToString('yyyy-MM-dd HH:mm:ss')
                 }
-                $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $daemonQuery -Parameters $daemonParameters
+                $null = Invoke-FathomSql -Query $daemonQuery -Parameters $daemonParameters
             }
 
             $query = @'
@@ -101,10 +101,10 @@ ON CONFLICT DO NOTHING;
                 status    = $status
                 message   = $message ?? [DBNull]::Value
             }
-            $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $query -Parameters $parameters
-            Complete-SqlTransaction -ConnectionName $script:ConnectionName
+            $null = Invoke-FathomSql -Query $query -Parameters $parameters
+            Complete-FathomTransaction
         } catch {
-            Undo-SqlTransaction -ConnectionName $script:ConnectionName
+            Undo-FathomTransaction
             throw
         }
 

@@ -28,5 +28,5 @@ ON CONFLICT (file_key) DO UPDATE SET
         first     = $times.Minimum | ConvertTo-FathomSqlTime
         last      = $times.Maximum | ConvertTo-FathomSqlTime
     }
-    $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $query -Parameters $parameters
+    $null = Invoke-FathomSql -Query $query -Parameters $parameters
 }

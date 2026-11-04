@@ -1,0 +1,41 @@
+# fathom-ps and its Postgres. Demo mode by default: the fake lmutil and Active Directory, with
+# data from tools/New-DevData.ps1. docs/deployment/container.md has real servers.
+#   podman compose up -d --build        (docker compose works the same)
+services:
+  db:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_USER: fathom
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fathom}
+      POSTGRES_DB: fathom
+    volumes:
+      - db:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  fathom:
+    build: .
+    image: localhost/fathom-ps
+    depends_on: [db]
+    ports:
+      - "${FATHOM_PORT:-5000}:5000"
+    environment:
+      LM_POSTGRES_DSN: postgresql://fathom:${POSTGRES_PASSWORD:-fathom}@db:5432/fathom
+      # The first admin account, so no setup wizard is left open: set PSU_ADMIN_PASSWORD in .env.
+      PSUDefaultAdminName: ${PSU_ADMIN_NAME:-admin}
+      PSUDefaultAdminPassword: ${PSU_ADMIN_PASSWORD:?set PSU_ADMIN_PASSWORD in .env}
+      TZ: ${TZ:-UTC}
+      # Demo: the fakes. For real servers, set FATHOM_LMUTIL to a mounted lmutil and leave the rest empty.
+      FATHOM_LMUTIL: ${FATHOM_LMUTIL:-/app/tests/fakes/lmutil}
+      # In the data volume, so generated demo data survives rebuilding the container.
+      FAKE_LMUTIL_DIR: ${FAKE_LMUTIL_DIR-/data/dev}
+      FATHOM_AD_MODULE: ${FATHOM_AD_MODULE-/app/tests/fakes/ActiveDirectory/ActiveDirectory.psm1}
+    volumes:
+      - data:/data
+      # Real servers: a Linux lmutil, and the license servers' log shares mounted on the host.
+      # - ./flexlm:/opt/flexlm:ro
+      # - /mnt/licsrv01:/logs/licsrv01:ro
+    restart: unless-stopped
+
+volumes:
+  db:
+  data:

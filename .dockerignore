@@ -1,0 +1,5 @@
+.git
+.dev
+testResults.xml
+.env*
+.universal/licenses.ps1

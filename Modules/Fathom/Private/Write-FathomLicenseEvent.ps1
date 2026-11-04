@@ -57,7 +57,7 @@ ON CONFLICT (event_id) DO NOTHING
             }
         }
         $json = ConvertTo-Json -InputObject @($rows) -Compress -Depth 2
-        $written += Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $query -Parameters @{ rows = $json }
+        $written += Invoke-FathomSql -Query $query -Parameters @{ rows = $json }
     }
 
     $written

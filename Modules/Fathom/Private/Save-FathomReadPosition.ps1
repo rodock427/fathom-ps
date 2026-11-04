@@ -40,5 +40,5 @@ ON CONFLICT (file_key) DO UPDATE SET
         events        = $EventsWritten
         ingested_at   = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
     }
-    $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $query -Parameters $parameters
+    $null = Invoke-FathomSql -Query $query -Parameters $parameters
 }

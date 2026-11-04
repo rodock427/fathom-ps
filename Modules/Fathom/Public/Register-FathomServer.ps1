@@ -52,7 +52,7 @@ ON CONFLICT (server_id) DO NOTHING
         created_at   = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
     }
 
-    if ((Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $query -Parameters $parameters) -eq 0) {
+    if ((Invoke-FathomSql -Query $query -Parameters $parameters) -eq 0) {
         throw "Server '$ServerId' is already registered."
     }
 
