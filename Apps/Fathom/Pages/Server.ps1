@@ -52,6 +52,7 @@ Use-FathomDatabase {
         }
     }
 
+    $labelFormat = if ($days -gt 7) { 'MM-dd' } else { 'MM-dd HH:mm' }
     $history = Get-FathomUsageHistory -ServerId $id -From $from -IntervalMinutes $bucketMinutes[$days]
     New-UDGrid -Container -Spacing 2 -Children {
         if (-not $history) {
@@ -61,7 +62,7 @@ Use-FathomDatabase {
         }
         foreach ($feature in $history | Group-Object Feature | Sort-Object Name) {
             $points = $feature.Group | Sort-Object BucketStart | ForEach-Object {
-                [pscustomobject] @{ Time = Format-FathomTime $_.BucketStart; InUse = $_.PeakInUse; Seats = $_.Issued }
+                [pscustomobject] @{ Time = $_.BucketStart.ToString($labelFormat); InUse = $_.PeakInUse; Seats = $_.Issued }
             }
             New-UDGrid -Item -ExtraSmallSize 12 -MediumSize 6 -Children {
                 New-UDCard -Title $feature.Name -Content {
@@ -71,12 +72,20 @@ Use-FathomDatabase {
                         Data          = $points
                         LabelProperty = 'Time'
                         Dataset       = @(
-                            New-UDChartJSDataset -DataProperty InUse -Label 'In use (peak)' -BackgroundColor '#1976d2' -BorderColor '#1976d2'
-                            New-UDChartJSDataset -DataProperty Seats -Label 'Seats' -BackgroundColor '#9e9e9e' -BorderColor '#9e9e9e'
+                            New-UDChartJSDataset -DataProperty InUse -Label 'In use (peak)' -BorderColor '#1976d2' -BackgroundColor '#1976d2' -BorderWidth 2
+                            New-UDChartJSDataset -DataProperty Seats -Label 'Seats' -BorderColor '#9e9e9e' -BackgroundColor '#9e9e9e' -BorderWidth 2
                         )
-                        Options       = @{ scales = @{ y = @{ beginAtZero = $true } }; elements = @{ point = @{ radius = 0 } } }
+                        Options       = @{
+                            maintainAspectRatio = $false
+                            elements            = @{ point = @{ radius = 0 }; line = @{ stepped = $true } }
+                            scales              = @{
+                                x = @{ ticks = @{ maxRotation = 0; autoSkip = $true; autoSkipPadding = 24; maxTicksLimit = 6 } }
+                                y = @{ beginAtZero = $true; ticks = @{ precision = 0 } }
+                            }
+                        }
                     }
-                    New-UDChartJS @chart
+                    # Chart.js fills its container, so the container sets the height.
+                    New-UDElement -Tag div -Attributes @{ style = @{ height = '240px' } } -Content { New-UDChartJS @chart }
                 }
             }
         }

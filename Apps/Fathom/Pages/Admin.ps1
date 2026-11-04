@@ -43,12 +43,13 @@ Use-FathomDatabase {
                     New-UDStack -Direction row -Spacing 1 -Children {
                         New-UDButton -Text 'Edit' -Size small -OnClick {
                             Show-UDModal -Header { New-UDTypography -Variant h6 -Text "Edit $($server.Name)" } -Content {
+                                # Ids differ from the add form's: one page, one id per input.
                                 New-UDForm -Id 'admin-edit-server' -Children {
-                                    New-UDTextbox -Id 'Name' -Label 'Name' -Value $server.Name -FullWidth
-                                    New-UDTextbox -Id 'LicenseSpec' -Label 'License server (port@host), blank for none' -Value $server.LicenseSpec -FullWidth
-                                    New-UDTextbox -Id 'LogPath' -Label 'Debug log path, blank for none' -Value $server.LogPath -FullWidth
-                                    New-UDTextbox -Id 'Vendor' -Label 'Vendor daemon' -Value $server.Vendor -FullWidth
-                                    New-UDSelect -Id 'UsageSource' -Label 'Usage history from' -DefaultValue ('Auto', 'Log', 'Lmstat' -eq $server.UsageSource)[0] -Option {
+                                    New-UDTextbox -Id 'editName' -Label 'Name' -Value $server.Name -FullWidth
+                                    New-UDTextbox -Id 'editLicenseSpec' -Label 'License server (port@host), blank for none' -Value $server.LicenseSpec -FullWidth
+                                    New-UDTextbox -Id 'editLogPath' -Label 'Debug log path, blank for none' -Value $server.LogPath -FullWidth
+                                    New-UDTextbox -Id 'editVendor' -Label 'Vendor daemon' -Value $server.Vendor -FullWidth
+                                    New-UDSelect -Id 'editUsageSource' -Label 'Usage history from' -DefaultValue ('Auto', 'Log', 'Lmstat' -eq $server.UsageSource)[0] -Option {
                                         New-UDSelectOption -Name 'Auto: the debug log while healthy, else lmstat' -Value 'Auto'
                                         New-UDSelectOption -Name 'The debug log' -Value 'Log'
                                         New-UDSelectOption -Name 'lmstat' -Value 'Lmstat'
@@ -57,12 +58,12 @@ Use-FathomDatabase {
                                     if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { throw 'Not authorized.' }
                                     $change = @{
                                         ServerId    = $server.ServerId
-                                        LicenseSpec = [string] $EventData.LicenseSpec
-                                        LogPath     = [string] $EventData.LogPath
-                                        Vendor      = [string] $EventData.Vendor
-                                        UsageSource = $EventData.UsageSource
+                                        LicenseSpec = [string] $EventData.editLicenseSpec
+                                        LogPath     = [string] $EventData.editLogPath
+                                        Vendor      = [string] $EventData.editVendor
+                                        UsageSource = $EventData.editUsageSource
                                     }
-                                    if ($EventData.Name) { $change.Name = $EventData.Name }
+                                    if ($EventData.editName) { $change.Name = $EventData.editName }
                                     $null = Use-FathomDatabase { Set-FathomServer @change }
                                     Hide-UDModal
                                     Invoke-UDRedirect -Url 'admin'
