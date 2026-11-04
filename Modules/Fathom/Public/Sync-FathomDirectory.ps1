@@ -2,6 +2,7 @@ function Sync-FathomDirectory {
     <#
     .SYNOPSIS
         Looks up the users and hosts Fathom has seen in Active Directory, recording the chosen attributes.
+        A username matches either logon name: pre-Windows 2000 (sAMAccountName) or userPrincipalName.
     .DESCRIPTION
         Meant for a schedule. Does nothing while directory lookups are off (the default). Each run
         takes the names not yet looked up, or not refreshed in RefreshHours, up to -Limit. Every
@@ -49,7 +50,8 @@ WITH seen AS (
 )
 SELECT s.kind, s.name FROM seen s
 LEFT JOIN ad_objects d ON d.kind = s.kind AND d.name = s.name
-WHERE s.name <> '' AND (d.name IS NULL OR d.fetched_at < @stale::timestamp)
+WHERE s.name <> '' AND (d.name IS NULL OR d.fetched_at < @stale::timestamp
+                        OR (d.kind = 'user' AND d.found AND d.person IS NULL))
 ORDER BY d.fetched_at NULLS FIRST, s.kind, s.name
 LIMIT @limit
 '@
@@ -98,9 +100,10 @@ WHERE @found AND NOT EXISTS (
     SELECT 1 FROM ad_objects WHERE kind = @kind AND name = @name AND attributes = @attributes::jsonb
 )
 ON CONFLICT (kind, name, changed_at) DO UPDATE SET attributes = EXCLUDED.attributes;
-INSERT INTO ad_objects (kind, name, found, attributes, fetched_at)
-VALUES (@kind, @name, @found, @attributes::jsonb, @now::timestamp)
-ON CONFLICT (kind, name) DO UPDATE SET found = EXCLUDED.found, attributes = EXCLUDED.attributes, fetched_at = EXCLUDED.fetched_at
+INSERT INTO ad_objects (kind, name, found, attributes, fetched_at, person)
+VALUES (@kind, @name, @found, @attributes::jsonb, @now::timestamp, @person)
+ON CONFLICT (kind, name) DO UPDATE SET found = EXCLUDED.found, attributes = EXCLUDED.attributes,
+    fetched_at = EXCLUDED.fetched_at, person = EXCLUDED.person
 '@
     foreach ($entry in $names) {
         $result.Looked++
@@ -111,6 +114,17 @@ ON CONFLICT (kind, name) DO UPDATE SET found = EXCLUDED.found, attributes = EXCL
             # anything else (no domain controller, no access) stops the run to be retried.
             if ($_.CategoryInfo.Category -ne 'ObjectNotFound') { throw }
             $object = $null
+        }
+        # A FlexLM username is either logon name: the pre-Windows 2000 one (sAMAccountName, tried
+        # above) or the user logon name (userPrincipalName), with or without its @domain.
+        if (-not $object -and $entry.kind -eq 'user') {
+            $value = $entry.name -replace "'", "''"
+            $filter = if ($entry.name.Contains('@')) { "UserPrincipalName -eq '$value'" } else { "UserPrincipalName -like '$value@*'" }
+            $matched = @(Get-ADUser -Filter $filter @lookup)
+            # Two people with that name under different domains: not a match.
+            if ($matched.Count -eq 1) {
+                $object = $matched[0]
+            }
         }
 
         $values = [ordered] @{}
@@ -148,6 +162,8 @@ ON CONFLICT (kind, name) DO UPDATE SET found = EXCLUDED.found, attributes = EXCL
             found      = [bool] $object
             attributes = $values | ConvertTo-Json -Compress -Depth 4
             now        = $now | ConvertTo-FathomSqlTime
+            # Which person: every username matching this account is them.
+            person     = if ($entry.kind -eq 'user' -and $object) { ([string] ($object.UserPrincipalName ?? $object.SamAccountName)).ToLowerInvariant() } else { [DBNull]::Value }
         }
     }
     $result

@@ -60,13 +60,20 @@ Use-FathomDatabase {
         return
     }
 
-    # One user: who they are, then what they used, in tabs.
+    # One person: who they are, then what they used under any of their usernames, in tabs.
     $directory = Get-FathomDirectoryObject -Kind user -Name $user
+    $usage = Get-FathomUserUsage -User $user -From $timeframe.From -To $timeframe.To
+    $several = $usage.Usernames.Count -gt 1
     New-UDCard -Id 'people-profile' -Content {
         $title = if ($directory.Attributes.DisplayName) { "$($directory.Attributes.DisplayName) ($user)" } else { $user }
         New-UDStack -Direction row -Spacing 2 -AlignItems center -Children {
             New-UDTypography -Variant h5 -Text $title
             New-UDLink -Text 'Back to everyone' -Url 'people'
+        }
+        # The usernames this person has been seen with (an old and a new one, say).
+        $others = @($usage.Usernames | Where-Object { $_ -ne $user.ToLowerInvariant() })
+        if ($others) {
+            New-UDTypography -Id 'people-usernames' -Variant body2 -Text "Also seen as: $($others -join ', ')"
         }
         if ($directory.Found -and $directory.Attributes.Count) {
             New-UDGrid -Id 'people-directory' -Container -Spacing 1 -Children {
@@ -83,12 +90,12 @@ Use-FathomDatabase {
     }
 
     New-FathomTimeframePicker -Timeframe $timeframe -Presets $presets -Page 'people' -Keep @{ user = $user }
-    $usage = Get-FathomUserUsage -User $user -From $timeframe.From -To $timeframe.To
 
     New-UDTabs -Id 'people-tabs' -Tabs {
         New-UDTab -Text "Sessions ($(@($usage.Sessions).Count))" -Content {
             $sessions = $usage.Sessions | ForEach-Object {
                 [pscustomobject] @{
+                    Username = $_.Username
                     Server   = $_.ServerId
                     Feature  = $_.Feature
                     Host     = $_.Host
@@ -103,18 +110,24 @@ Use-FathomDatabase {
                 Columns = [ordered] @{ Feature = 'Feature'; Started = 'Started'; LastSeen = 'Last seen'; Hours = 'Hours'; Host = 'Host'; Server = 'Server' }
                 Empty   = 'No sessions seen by lmstat in this period.'
             }
+            if ($several) {
+                $table.Columns.Insert(0, 'Username', 'Username')
+            }
             New-FathomTable @table
         }
 
         New-UDTab -Text "Log events ($(@($usage.Events).Count))" -Content {
             $events = $usage.Events | ForEach-Object {
-                [pscustomobject] @{ Time = Format-FathomTime $_.Time; Event = $_.Event; Feature = $_.Feature; Host = $_.Host; Server = $_.ServerId }
+                [pscustomobject] @{ Time = Format-FathomTime $_.Time; Username = $_.Username; Event = $_.Event; Feature = $_.Feature; Host = $_.Host; Server = $_.ServerId }
             }
             $table = @{
                 Id      = 'people-events'
                 Data    = $events
                 Columns = [ordered] @{ Time = 'Time'; Event = 'Event'; Feature = 'Feature'; Host = 'Host'; Server = 'Server' }
                 Empty   = 'No debug log events in this period.'
+            }
+            if ($several) {
+                $table.Columns.Insert(1, 'Username', 'Username')
             }
             New-FathomTable @table
         }

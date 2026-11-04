@@ -24,6 +24,7 @@
         'Get-FathomDirectorySetting'
         'Get-FathomExpiry'
         'Get-FathomLicenseHolder'
+        'Get-FathomPerson'
         'Get-FathomRole'
         'Get-FathomServer'
         'Get-FathomServerHealth'

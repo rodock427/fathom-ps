@@ -23,6 +23,8 @@ $script:Users = @{
     starfire  = @{ GivenName = 'Kory'; Surname = 'Anders'; Department = 'Simulation'; Title = 'Analyst'; Office = 'B1-022' }
     raven     = @{ GivenName = 'Rachel'; Surname = 'Roth'; Department = 'Simulation'; Title = 'Senior Analyst'; Office = 'B1-030' }
     jbravo    = @{ GivenName = 'Johnny'; Surname = 'Bravo'; Department = 'Sales'; Title = 'Account Manager'; Office = 'HQ-2' }
+    # Same name, another domain: "johnny.bravo" alone matches two people.
+    jbravo2   = @{ GivenName = 'Johnny'; Surname = 'Bravo'; Department = 'Sales'; Title = 'Account Manager'; Office = 'Branch'; Domain = 'sales.corp.local' }
 }
 
 function Get-FakeIdentityError([string] $Identity, [string] $Command) {
@@ -31,30 +33,16 @@ function Get-FakeIdentityError([string] $Identity, [string] $Command) {
     [System.Management.Automation.ErrorRecord]::new($exception, $id, 'ObjectNotFound', $Identity)
 }
 
-function Get-ADUser {
-    <#
-    .SYNOPSIS
-        A fixture user with -Properties * worth of attributes, or the real module's not-found error.
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory, Position = 0)] [string] $Identity,
-        [string[]] $Properties,
-        [string] $Server,
-        [pscredential] $Credential
-    )
-
-    $sam = $Identity.ToLowerInvariant()
-    $user = $script:Users[$sam]
-    if (-not $user) {
-        $PSCmdlet.ThrowTerminatingError((Get-FakeIdentityError -Identity $Identity -Command 'GetADUser'))
-    }
+function Get-FakeUser([string] $Sam) {
+    $user = $script:Users[$Sam]
     $display = "$($user.GivenName) $($user.Surname)"
-    $dn = "CN=$display,OU=Staff,DC=corp,DC=local"
+    # The two logon names differ, as after a naming change: alice / alice.archer@corp.local.
+    $domain = $user.Domain ?? 'corp.local'
+    $upn = "$($user.GivenName).$($user.Surname)@$domain".ToLowerInvariant()
     [pscustomobject] [ordered] @{
-        DistinguishedName  = $dn
-        SamAccountName     = $sam
-        UserPrincipalName  = "$sam@corp.local"
+        DistinguishedName  = "CN=$display,OU=Staff,DC=corp,DC=local"
+        SamAccountName     = $Sam
+        UserPrincipalName  = $upn
         Name               = $display
         DisplayName        = $display
         GivenName          = $user.GivenName
@@ -63,8 +51,8 @@ function Get-ADUser {
         Title              = $user.Title
         Office             = $user.Office
         Company            = 'Corp'
-        EmailAddress       = "$sam@corp.example"
-        mail               = "$sam@corp.example"
+        EmailAddress       = "$Sam@corp.example"
+        mail               = "$Sam@corp.example"
         telephoneNumber    = '+1 555 0100'
         Fax                = $null
         Manager            = 'CN=Morgan Manager,OU=Staff,DC=corp,DC=local'
@@ -75,11 +63,47 @@ function Get-ADUser {
         LastLogonDate      = [datetime] '2026-11-03 08:01:00'
         lastLogonTimestamp = [long] 134064648600000000
         badPwdCount        = 0
-        ObjectGUID         = [guid]::new(('{0:x8}-0000-4000-8000-000000000000' -f ($sam.GetHashCode() -band 0x7fffffff)))
-        SID                = [FakeSecurityIdentifier]::new("S-1-5-21-1004336348-1177238915-682003330-$(1100 + $sam.Length)")
+        ObjectGUID         = [guid]::new(('{0:x8}-0000-4000-8000-000000000000' -f ($Sam.GetHashCode() -band 0x7fffffff)))
+        SID                = [FakeSecurityIdentifier]::new("S-1-5-21-1004336348-1177238915-682003330-$(1100 + $Sam.Length)")
         thumbnailPhoto     = [byte[]] (1..64)
         ObjectClass        = 'user'
     }
+}
+
+function Get-ADUser {
+    <#
+    .SYNOPSIS
+        A fixture user by pre-Windows 2000 name (-Identity), or users whose userPrincipalName
+        matches a -Filter ("UserPrincipalName -eq|-like 'value'"), as the real cmdlet would.
+    #>
+    [CmdletBinding(DefaultParameterSetName = 'Identity')]
+    param(
+        [Parameter(Mandatory, Position = 0, ParameterSetName = 'Identity')] [string] $Identity,
+        [Parameter(Mandatory, ParameterSetName = 'Filter')] [string] $Filter,
+        [string[]] $Properties,
+        [string] $Server,
+        [pscredential] $Credential
+    )
+
+    if ($PSCmdlet.ParameterSetName -eq 'Filter') {
+        if ($Filter -notmatch "^UserPrincipalName -(eq|like) '(.*)'$") {
+            throw "The fake only understands UserPrincipalName -eq/-like filters, not: $Filter"
+        }
+        $operator = $Matches[1]
+        $value = $Matches[2] -replace "''", "'"
+        foreach ($sam in $script:Users.Keys) {
+            $user = Get-FakeUser -Sam $sam
+            $hit = if ($operator -eq 'eq') { $user.UserPrincipalName -eq $value } else { $user.UserPrincipalName -like $value }
+            if ($hit) { $user }
+        }
+        return
+    }
+
+    $sam = $Identity.ToLowerInvariant()
+    if (-not $script:Users[$sam]) {
+        $PSCmdlet.ThrowTerminatingError((Get-FakeIdentityError -Identity $Identity -Command 'GetADUser'))
+    }
+    Get-FakeUser -Sam $sam
 }
 
 function Get-ADComputer {
