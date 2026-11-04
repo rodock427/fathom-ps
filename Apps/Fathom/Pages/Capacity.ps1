@@ -28,7 +28,7 @@ Use-FathomDatabase {
             Feature     = $row.Feature
             Seats       = $row.Seats
             Peak        = $row.Peak
-            Typical     = $row.P95
+            Typical     = if ($null -ne $row.P95) { [Math]::Round($row.P95, 1) }
             AtCapacity  = if ($null -ne $row.AtCapacityPercent) { "$($row.AtCapacityPercent)%" }
             Denials     = $row.Denials
             DeniedUsers = $row.DeniedUsers

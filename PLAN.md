@@ -1,5 +1,9 @@
 # Fathom → PowerShell Universal: V1 plan (agentless monitoring)
 
+> **Status: V1 is complete** (phases 1–8), plus scale fixes for servers with hundreds of features and
+> Active Directory enrichment. The [README](README.md) describes what's built; this file keeps the
+> design decisions and what's next.
+
 V1 recreates Fathom's **monitoring** side in PowerShell on PSU, **with nothing installed on license-server hosts**:
 - **Live status**: PSU runs `lmutil lmstat -a -c port@host` for each registered server on a schedule. This gives seat limits, in-use counts and up/down.
 - **Usage history**: PSU reads each host's `lmgrd` debug log over SMB (`\\licsrv\share\debug.log`), picking up from where it last stopped, and parses new lines into usage events.
@@ -20,6 +24,7 @@ fathom-ps/
 │   ├── Private/  Public/      # one function per file
 │   └── Sql/schema.sql         # Fathom's monitoring tables + PSU-side tables
 ├── tests/                     # Pester; parity tests reuse license_manager fixtures
+├── tools/                     # dev helpers: New-DevData.ps1 generates local dev data
 ├── PSScriptAnalyzerSettings.psd1
 └── azure-pipelines.yml        # CI: PSScriptAnalyzer + Pester on every push
 ```
@@ -33,6 +38,9 @@ fathom-ps/
 
 ## Phases
 
+All done. One gap: the Azure DevOps pipeline is written but not yet connected, so "CI is green"
+means `build.ps1` passes locally.
+
 | # | Phase | Done when |
 |---|---|---|
 | 1 | **Foundation**: module skeleton, Postgres via SimplySql, `schema.sql`, lint/test harness, Azure DevOps CI | CI is green; schema setup is idempotent against Fathom's DB |
@@ -44,7 +52,7 @@ fathom-ps/
 | 7 | **Alerts**: rules + notifier, **shipped switched off** | Each rule fires on seeded data; nothing is sent until enabled |
 | 8 | **UI**: a PSU App, three role tiers | Each role sees exactly its tier |
 
-In dev, log paths are local fixture files. The UNC path is the same code, just a different path.
+In dev, log paths are local files (`tools/New-DevData.ps1` generates them). The UNC path is the same code, just a different path.
 
 ## What V1 tracks, and why
 
@@ -63,19 +71,13 @@ healthy and falls back to the lmstat history when it isn't (share unreachable, o
 lmstat shows seats in use). Log health is recorded on every read to make that call.
 
 Deliberately not tracked: per-host breakdowns, feature versions, borrowed licenses.
-Retention: keep everything (multi-year trends drive renewals; the volume is small).
+Retention: keep everything (multi-year trends drive renewals). Volume is modest for typical servers;
+one with hundreds of features writes about 42M lmstat samples a year, hence the hourly rollup under Later.
 
 ## Screens and access
 
-Totals are for everyone. Anything about an individual is for license admins and managers.
-
-| Screen | Reader (everyone) | Operator (license admins, managers) | Administrator |
-|---|---|---|---|
-| **Overview** | Free seats per feature, server/daemon health, freshness, expiring soon | + denials last 24 h | same |
-| **Server detail** | Usage over time vs seats, per feature | + current holders, denials, recent activity | same |
-| **Capacity & renewal** | | Peak / 95th percentile vs seats, time at capacity, denials and distinct users denied, monthly active users, underused features | same |
-| **People** | | Current holders with session length (flags long ones), user lookup | same |
-| **Admin** | | | Add / edit / disable servers, poll now, alert settings |
+Totals are for everyone. Anything about an individual is for license admins and managers. The
+[README](README.md#the-app) has the screens as built.
 
 Roles are the app's own `FathomReader`, `FathomOperator` and `FathomAdmin`, mapped to directory groups.
 Not PSU's built-in Reader and Operator: those open the PSU admin console, and Operator can edit scripts.
@@ -98,5 +100,8 @@ Channel: email, one digest per run. A Teams workflow webhook could be added late
 
 ## Production prerequisites
 
+- A **PSU license**. The developer license is for non-production use, and the app's per-page roles are a licensed feature.
 - PSU on **Windows Server**, running as a **domain service account** with read access to each host's FlexLM log folder.
 - `lmutil.exe` on the PSU host, plus network access to each server's `port@host` (lmgrd and vendor daemon ports).
+- For Active Directory details (optional): RSAT's ActiveDirectory module on the PSU host, and read access to AD.
+- Connect `azure-pipelines.yml` to Azure DevOps.
