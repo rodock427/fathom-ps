@@ -167,3 +167,41 @@ CREATE TABLE IF NOT EXISTS log_coverage (
     last_event_at TIMESTAMP NOT NULL
 );
 CREATE INDEX IF NOT EXISTS log_coverage_server ON log_coverage (server_id);
+
+-- Alert settings: one row, edited with Set-FathomAlertSetting (fathom-ps only).
+-- Sending is off until enabled; alerts are still evaluated and recorded meanwhile.
+CREATE TABLE IF NOT EXISTS alert_settings (
+    id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    smtp_server TEXT,
+    smtp_port INTEGER NOT NULL DEFAULT 25,
+    use_ssl BOOLEAN NOT NULL DEFAULT TRUE,
+    mail_from TEXT,
+    mail_to TEXT,
+    -- Testing only: write each message as an .eml file here instead of sending it.
+    pickup_directory TEXT,
+    down_minutes INTEGER NOT NULL DEFAULT 10,
+    capacity_minutes INTEGER NOT NULL DEFAULT 30,
+    expiry_days INTEGER NOT NULL DEFAULT 30,
+    repeat_hours INTEGER NOT NULL DEFAULT 24,
+    updated_at TIMESTAMP
+);
+INSERT INTO alert_settings (id) VALUES (1) ON CONFLICT DO NOTHING;
+
+-- Every alert raised, so each is mailed once, reminded on a schedule, and its resolution
+-- reported (fathom-ps only).
+CREATE TABLE IF NOT EXISTS alert_state (
+    alert_key TEXT PRIMARY KEY,
+    rule TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    server_id TEXT,
+    feature TEXT,
+    message TEXT NOT NULL,
+    first_seen_at TIMESTAMP NOT NULL,
+    last_seen_at TIMESTAMP NOT NULL,
+    last_notified_at TIMESTAMP,
+    resolved_at TIMESTAMP,
+    resolution_notified BOOLEAN NOT NULL DEFAULT FALSE
+);
+-- When the condition itself began (e.g. the first failed poll), if the rule knows.
+ALTER TABLE alert_state ADD COLUMN IF NOT EXISTS condition_since TIMESTAMP;

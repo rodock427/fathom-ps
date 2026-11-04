@@ -5,6 +5,8 @@ param()
 
 BeforeAll {
     Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
+    # The module names its connection per import; send the tests' own SQL calls there too.
+    $PSDefaultParameterValues['*-Sql*:ConnectionName'] = InModuleScope Fathom { $script:ConnectionName }
     $fixture = [System.IO.File]::ReadAllLines((Join-Path -Path $PSScriptRoot -ChildPath 'fixtures/emulator.log'))
 
     function Write-TestLog([string] $Path, [string[]] $Line, [switch] $Append) {
@@ -19,7 +21,7 @@ BeforeAll {
     # What a server's stored events look like, minus the per-run ids, for comparing two reads.
     function Get-StoredEvent([string] $ServerId) {
         $query = 'SELECT line_number, event_type, timestamp, raw_line FROM license_events WHERE server_id = @id ORDER BY line_number'
-        (Invoke-SqlQuery -ConnectionName Fathom -Query $query -Parameters @{ id = $ServerId } -WarningAction SilentlyContinue) |
+        (Invoke-SqlQuery -Query $query -Parameters @{ id = $ServerId } -WarningAction SilentlyContinue) |
             ForEach-Object { '{0}|{1}|{2:s}|{3}' -f $_.line_number, $_.event_type, $_.timestamp, $_.raw_line }
     }
 
@@ -41,7 +43,7 @@ Describe 'Monitored servers and log sync' -Skip:(-not $env:FATHOM_TEST_DSN) {
     }
 
     BeforeEach {
-        $null = Invoke-SqlUpdate -ConnectionName Fathom -Query 'TRUNCATE license_events, _ingest_manifest, monitored_servers'
+        $null = Invoke-SqlUpdate -Query 'TRUNCATE license_events, _ingest_manifest, monitored_servers'
     }
 
     Context 'Register-FathomServer' {
@@ -74,8 +76,8 @@ Describe 'Monitored servers and log sync' -Skip:(-not $env:FATHOM_TEST_DSN) {
             Unregister-FathomServer -ServerId a_b -Confirm:$false
 
             Get-FathomServer | Should -BeNullOrEmpty
-            Invoke-SqlScalar -ConnectionName Fathom -Query 'SELECT count(*) FROM _ingest_manifest' | Should -Be 0
-            Invoke-SqlScalar -ConnectionName Fathom -Query 'SELECT count(*) FROM license_events' | Should -BeGreaterThan 0
+            Invoke-SqlScalar -Query 'SELECT count(*) FROM _ingest_manifest' | Should -Be 0
+            Invoke-SqlScalar -Query 'SELECT count(*) FROM license_events' | Should -BeGreaterThan 0
         }
     }
 
@@ -132,7 +134,7 @@ Describe 'Monitored servers and log sync' -Skip:(-not $env:FATHOM_TEST_DSN) {
 
             $null = Get-FathomServer | Sync-FathomDebugLog
 
-            $ingestedAt = Invoke-SqlScalar -ConnectionName Fathom -Query 'SELECT last_ingested_at FROM _ingest_manifest'
+            $ingestedAt = Invoke-SqlScalar -Query 'SELECT last_ingested_at FROM _ingest_manifest'
             [Math]::Abs(((Get-Date) - $ingestedAt).TotalMinutes) | Should -BeLessThan 2
         }
 

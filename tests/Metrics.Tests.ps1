@@ -5,11 +5,13 @@ param()
 
 BeforeAll {
     Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
+    # The module names its connection per import; send the tests' own SQL calls there too.
+    $PSDefaultParameterValues['*-Sql*:ConnectionName'] = InModuleScope Fathom { $script:ConnectionName }
     $golden = Get-Content -Raw -LiteralPath (Join-Path -Path $PSScriptRoot -ChildPath 'fixtures/metrics.golden.json') |
         ConvertFrom-Json -AsHashtable
 
     function Invoke-Sql([string] $Query, [hashtable] $Parameters = @{}) {
-        $null = Invoke-SqlUpdate -ConnectionName Fathom -Query $Query -Parameters $Parameters
+        $null = Invoke-SqlUpdate -Query $Query -Parameters $Parameters
     }
 
     # A server as the lmstat poll leaves it: latest poll at $PolledAt, features in live_status.

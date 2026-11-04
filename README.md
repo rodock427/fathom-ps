@@ -27,6 +27,7 @@ The repo root **is** the PSU repository (what PSU's Git sync points at).
 |---|---|---|
 | Fathom: read debug logs | `Scripts/Sync-DebugLogs.ps1` | every minute |
 | Fathom: poll lmstat | `Scripts/Sync-LiveStatus.ps1` | every 5 minutes |
+| Fathom: alerts | `Scripts/Send-Alerts.ps1` | every 5 minutes, 2 minutes after each poll |
 
 `Scripts/Initialize-Database.ps1` isn't scheduled: run it once after installing **and after every update**. Until it runs, jobs that need new columns fail (and recover by themselves once it has).
 
@@ -36,6 +37,14 @@ Setup on the PSU server:
 2. **lmutil:** `FATHOM_LMUTIL` set to its full path, or `lmutil` on the service's `PATH`.
 3. **Log access:** the PSU service account needs read access to each server's FlexLM log share.
 4. Run `Scripts/Initialize-Database.ps1`, then register servers (see [Use](#use)).
+5. **Alerts (optional):** configure mail, check it with a test message, then switch sending on.
+   For a server that needs a login, add a secret variable `FathomSmtpCredential` (a PSCredential).
+
+   ```powershell
+   Set-FathomAlertSetting -SmtpServer smtp.corp.example -SmtpPort 587 -From fathom@corp.example -To licensing@corp.example
+   Send-FathomAlert -Test
+   Set-FathomAlertSetting -Enabled $true
+   ```
 
 Local dev against the fake lmutil, with `.dev/` holding `debug.log` and `<host>.txt` lmstat answers:
 
@@ -120,4 +129,21 @@ count has drifted from lmstat isn't used at all. `Set-FathomServer -UsageSource 
 
 **One deliberate difference from Fathom:** the parser moves the date on when the clock wraps past
 midnight (Fathom waits for the next `TIMESTAMP` line), so after-midnight lines aren't dated a day early.
+
+## Alerts
+
+Off until enabled. Meanwhile they're still evaluated and recorded (`Get-FathomAlert` shows what
+would be sent), so switching them on mails whatever is active then.
+
+| Rule | Severity | When |
+|---|---|---|
+| ServerDown | Critical | lmstat failing for `DownMinutes` (10) |
+| DaemonDown | Warning | a vendor daemon down for `DownMinutes` |
+| AtCapacity | Warning | every seat of a feature taken for `CapacityMinutes` (30) |
+| Expiring | Info / Warning (7 days) / Critical (expired) | within `ExpiryDays` (30) |
+| Stale | Warning | no fresh poll, a log gone quiet while seats are in use, or an unreachable log |
+| LogDrifted | Warning | the log's seat count disagrees with lmstat |
+
+One digest per run: new alerts, reminders every `RepeatHours` (24) for ones still active, and
+resolutions of alerts that were mailed. A failed send is retried on the next run.
 

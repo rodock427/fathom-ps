@@ -1,17 +1,19 @@
 # Needs a throwaway Postgres: set FATHOM_TEST_DSN. Never point it at a real database.
 BeforeAll {
     Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
+    # The module names its connection per import; send the tests' own SQL calls there too.
+    $PSDefaultParameterValues['*-Sql*:ConnectionName'] = InModuleScope Fathom { $script:ConnectionName }
 
     function Get-TableColumn([string] $Table) {
         $query = 'SELECT column_name FROM information_schema.columns WHERE table_name = @table ORDER BY ordinal_position'
-        (Invoke-SqlQuery -ConnectionName Fathom -Query $query -Parameters @{ table = $Table }).column_name
+        (Invoke-SqlQuery -Query $query -Parameters @{ table = $Table }).column_name
     }
 }
 
 Describe 'Initialize-FathomSchema' -Skip:(-not $env:FATHOM_TEST_DSN) {
     BeforeAll {
         Connect-FathomDatabase -Dsn $env:FATHOM_TEST_DSN
-        Invoke-SqlUpdate -ConnectionName Fathom -Query 'DROP TABLE IF EXISTS license_events, live_status, feature_inventory, _ingest_manifest, monitored_servers'
+        Invoke-SqlUpdate -Query 'DROP TABLE IF EXISTS license_events, live_status, feature_inventory, _ingest_manifest, monitored_servers'
         Initialize-FathomSchema
     }
 

@@ -5,3 +5,5 @@ New-PSUScript -Name 'Scripts/Sync-LiveStatus.ps1' -Path 'Scripts/Sync-LiveStatus
     -Description 'Polls every enabled server with lmstat: live usage, seat limits, up/down.'
 New-PSUScript -Name 'Scripts/Initialize-Database.ps1' -Path 'Scripts/Initialize-Database.ps1' -ConcurrentJobs 1 -TimeOut 5 `
     -Description 'Creates or upgrades the Fathom tables. Run after installing or updating.'
+New-PSUScript -Name 'Scripts/Send-Alerts.ps1' -Path 'Scripts/Send-Alerts.ps1' -ConcurrentJobs 1 -TimeOut 10 -MaxHistory 500 `
+    -Description 'Records current alerts and mails a digest. Sends nothing until alerts are enabled.'
