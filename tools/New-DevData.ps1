@@ -46,8 +46,9 @@ param(
     # compose stack's own (podman compose exec fathom pwsh /app/tools/New-DevData.ps1 -Force).
     [switch] $Force,
 
-    # Where the generated log, lmstat answers and alert mail go.
-    [string] $DevDirectory = (Join-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -ChildPath '.dev')
+    # Where the generated log, lmstat answers and alert mail go: where the fake lmutil reads
+    # (FAKE_LMUTIL_DIR), else .dev in this repo.
+    [string] $DevDirectory = ($env:FAKE_LMUTIL_DIR ? $env:FAKE_LMUTIL_DIR : (Join-Path -Path (Split-Path -Path $PSScriptRoot -Parent) -ChildPath '.dev'))
 )
 
 $ErrorActionPreference = 'Stop'

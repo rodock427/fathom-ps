@@ -11,8 +11,9 @@ installed on the license servers. PSU polls `lmstat` and reads the `lmgrd` debug
 - **Three access tiers**: totals for everyone, individuals for license admins and managers.
 - **Email alerts** and **Active Directory details**, both built in and off until you turn them on.
 
-**Deploying:** step-by-step guides for [Linux](docs/deployment/linux.md) and [Windows](docs/deployment/windows.md),
-from dev-only through real license servers to production.
+**Deploying:** step-by-step guides for [Linux](docs/deployment/linux.md), [Windows](docs/deployment/windows.md)
+and [containers](docs/deployment/container.md), from dev-only through real license servers to production.
+The quickest look: `echo "PSU_ADMIN_PASSWORD=..." > .env && podman compose up -d --build`.
 
 **Contents:** [How it works](#how-it-works) · [The app](#the-app) · [Set up on PSU](#set-up-on-a-psu-server) ·
 [Alerts](#alerts) · [Active Directory](#active-directory) · [Local development](#local-development) ·
@@ -252,6 +253,7 @@ The repo root **is** the PSU repository, which is what PSU's Git sync points at.
 | `Modules/Fathom/Sql/schema.sql` | Idempotent schema: Fathom's shared tables plus fathom-ps's own |
 | `tests/` | Pester tests, fixtures, and fakes for `lmutil` (bash and Windows) and Active Directory |
 | `tools/` | `New-DevData.ps1` generates local dev data; `Start-DevPsu.ps1` runs PSU against this repo |
-| `docs/deployment/` | Deployment guides for Linux and Windows |
+| `docs/deployment/` | Deployment guides for Linux, Windows and containers |
+| `Dockerfile`, `compose.yaml`, `docker/` | The container image and stack |
 | `build.ps1` | Lint and test; CI runs exactly this |
 | `PLAN.md` | The V1 plan, design decisions and what's next |

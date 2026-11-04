@@ -1,12 +1,12 @@
 # Deploying fathom-ps
 
-Pick your operating system, then the level you need. Each level builds on the one before it.
+Pick how you'll run it, then the level you need. Each level builds on the one before it.
 
-| | [Linux](linux.md) | [Windows](windows.md) |
-|---|---|---|
-| **1. Dev only**: generated data, fake lmutil and Active Directory | ✅ | ✅ |
-| **2. Dev on real servers**: real `lmutil`, optionally the real debug logs and AD | ✅ (no Active Directory) | ✅ |
-| **3. Production** | Placeholder | Placeholder (recommended OS) |
+| | [Linux](linux.md) | [Windows](windows.md) | [Container](container.md) |
+|---|---|---|---|
+| **1. Dev only**: generated data, fake lmutil and Active Directory | ✅ | ✅ | ✅ quickest start |
+| **2. Dev on real servers**: real `lmutil`, optionally the real debug logs and AD | ✅ (no Active Directory) | ✅ | ✅ (no Active Directory) |
+| **3. Production** | Placeholder | Placeholder (recommended OS) | Placeholder |
 
 **Windows is the production target.** Active Directory lookups need RSAT's ActiveDirectory module,
 which only exists on Windows, and the debug logs are read straight from UNC paths. Linux works for
