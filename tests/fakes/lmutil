@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Stand-in for lmutil in tests. "lmstat -a -c <port>@<host>" prints
+# $FAKE_LMUTIL_DIR/<host>.txt. Host "hang" never answers; an unknown host fails
+# the way lmutil does when it can't reach a server.
+spec=""
+while [ $# -gt 0 ]; do
+    if [ "$1" = "-c" ]; then spec="$2"; shift; fi
+    shift
+done
+host="${spec#*@}"
+
+if [ "$host" = "hang" ]; then
+    sleep 60
+    exit 0
+fi
+if [ -f "$FAKE_LMUTIL_DIR/$host.txt" ]; then
+    cat "$FAKE_LMUTIL_DIR/$host.txt"
+    exit 0
+fi
+echo "lmutil - Copyright (c) 1989-2021 Flexera. All Rights Reserved."
+echo "Error getting status: Cannot connect to license server system. (-15,570:111 \"Connection refused\")"
+exit 1

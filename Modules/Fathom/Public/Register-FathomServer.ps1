@@ -38,8 +38,8 @@ function Register-FathomServer {
     }
 
     $query = @'
-INSERT INTO monitored_servers (server_id, name, license_spec, log_path, vendor)
-VALUES (@server_id, @name, @license_spec, @log_path, @vendor)
+INSERT INTO monitored_servers (server_id, name, license_spec, log_path, vendor, created_at)
+VALUES (@server_id, @name, @license_spec, @log_path, @vendor, @created_at::timestamp)
 ON CONFLICT (server_id) DO NOTHING
 '@
     $parameters = @{
@@ -48,6 +48,8 @@ ON CONFLICT (server_id) DO NOTHING
         license_spec = if ($LicenseSpec) { $LicenseSpec } else { [DBNull]::Value }
         log_path     = if ($LogPath) { $LogPath } else { [DBNull]::Value }
         vendor       = if ($Vendor) { $Vendor } else { [DBNull]::Value }
+        # Local clock, consistent with every other timestamp Fathom stores.
+        created_at   = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
     }
 
     if ((Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $query -Parameters $parameters) -eq 0) {

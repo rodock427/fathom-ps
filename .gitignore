@@ -1,2 +1,5 @@
 testResults.xml
 .env*
+# PSU writes license keys here if one is added in the admin console. Never commit it.
+.universal/licenses.ps1
+.dev/

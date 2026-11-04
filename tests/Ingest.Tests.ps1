@@ -4,7 +4,7 @@
 param()
 
 BeforeAll {
-    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Fathom/Fathom.psd1') -Force
+    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath '../Modules/Fathom/Fathom.psd1') -Force
     $fixture = [System.IO.File]::ReadAllLines((Join-Path -Path $PSScriptRoot -ChildPath 'fixtures/emulator.log'))
 
     function Write-TestLog([string] $Path, [string[]] $Line, [switch] $Append) {
@@ -92,6 +92,16 @@ Describe 'Monitored servers and log sync' -Skip:(-not $env:FATHOM_TEST_DSN) {
             $first.EventsWritten | Should -Be 638
             $second.Status | Should -Be 'UpToDate'
             $second.EventsWritten | Should -Be 0
+        }
+
+        It 'stamps read positions with the local clock, like event timestamps' {
+            $path = Register-TestServer licsrv01
+            Write-TestLog $path $fixture[0..9]
+
+            $null = Get-FathomServer | Sync-FathomDebugLog
+
+            $ingestedAt = Invoke-SqlScalar -ConnectionName Fathom -Query 'SELECT last_ingested_at FROM _ingest_manifest'
+            [Math]::Abs(((Get-Date) - $ingestedAt).TotalMinutes) | Should -BeLessThan 2
         }
 
         It 'stores the same events whether a log is read in one go, in small chunks, or as it grows' {
