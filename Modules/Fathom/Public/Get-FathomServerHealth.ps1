@@ -8,9 +8,11 @@ function Get-FathomServerHealth {
         in use), Drifted (the log's seat count disagrees with lmstat), Unknown (never
         collected), Healthy.
 
-        EffectiveSource is where usage history comes from. With usage source Auto it's the
-        debug log while that's healthy (reachable, fresh, agreeing with lmstat), else lmstat;
-        Log and Lmstat force one.
+        EffectiveSource is where usage history comes from: log, lmstat, or auto (per time
+        bucket, the log where it has coverage and lmstat to fill its gaps, such as while a log
+        share was unreachable). Usage source Auto resolves to auto when the server has both
+        sources, but to lmstat while the log's count has drifted, because then none of its
+        numbers can be trusted. Log and Lmstat force one.
     .EXAMPLE
         Get-FathomServerHealth | Where-Object Status -NE 'Healthy'
     #>
@@ -73,12 +75,19 @@ ORDER BY s.server_id
             $logQuiet = -not $row.last_log_line_at -or $row.last_log_line_at -lt $now.AddMinutes(-$LogStaleMinutes)
             $logStale = $row.log_path -and $row.license_spec -and $row.seats_in_use -gt 0 -and $logQuiet
             $drifted = $row.log_path -and -not $pollStale -and $row.log_drift -gt $DriftTolerance
-            $logHealthy = $row.log_path -and $row.last_log_status -in 'Synced', 'UpToDate' -and -not $logStale -and -not $drifted
 
             $effectiveSource = switch ($row.usage_source) {
                 'log' { 'log' }
                 'lmstat' { 'lmstat' }
-                default { if ($logHealthy -or -not $row.license_spec) { 'log' } else { 'lmstat' } }
+                default {
+                    if ($drifted -or -not $row.log_path) {
+                        'lmstat'
+                    } elseif (-not $row.license_spec) {
+                        'log'
+                    } else {
+                        'auto'
+                    }
+                }
             }
 
             $status = if (-not $row.enabled) {

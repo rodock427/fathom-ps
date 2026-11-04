@@ -19,6 +19,7 @@ function Unregister-FathomServer {
         # Read positions go too, so re-registering re-reads the log. Event ids make that harmless.
         $query = @'
 DELETE FROM _ingest_manifest WHERE starts_with(file_key, 'psu:' || @server_id || ':');
+DELETE FROM log_coverage WHERE server_id = @server_id;
 DELETE FROM monitored_servers WHERE server_id = @server_id;
 '@
         $null = Invoke-SqlUpdate -ConnectionName $script:ConnectionName -Query $query -Parameters @{ server_id = $ServerId }

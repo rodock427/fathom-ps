@@ -6,6 +6,7 @@ Run with Fathom's virtualenv (the parsers are imported from there):
 
 Writes:
   emulator.log / emulator_lmstat.txt   larger inputs rendered by Fathom's emulator
+  emulator_day.log                     emulator.log up to its first midnight (for metric parity)
   edge_cases.log                       hand-picked tricky lines (CRLF line endings)
   *.events.json / *.status.json        what Python Fathom parses each input into
 
@@ -65,7 +66,22 @@ def write_inputs() -> None:
     scenario = build_scenario("site-b", seed=7, n_events=400)
     (HERE / "emulator.log").write_text(render_debug_log(scenario))
     (HERE / "emulator_lmstat.txt").write_text(render_lmstat(scenario))
+    (HERE / "emulator_day.log").write_text(first_day(render_debug_log(scenario)))
     (HERE / "edge_cases.log").write_bytes(("\r\n".join(EDGE_CASES) + "\r\n").encode())
+
+
+def first_day(log_text: str) -> str:
+    """The lines before the clock first goes backwards (midnight, with no new TIMESTAMP).
+    Fathom doesn't roll the date over there and fathom-ps does, so metrics can only be
+    compared on a log that stays within one day."""
+    lines, last = [], ""
+    for line in log_text.splitlines(keepends=True):
+        clock = line.split(" ", 1)[0].zfill(8)
+        if last and clock < last:
+            break
+        lines.append(line)
+        last = clock
+    return "".join(lines)
 
 
 def golden_events(log: Path) -> list[dict]:

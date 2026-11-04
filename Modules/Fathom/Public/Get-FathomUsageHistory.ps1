@@ -4,9 +4,9 @@ function Get-FathomUsageHistory {
         Peak seats in use against seats issued, per time bucket, for one server's features.
     .DESCRIPTION
         Comes from the server's effective usage source (see Get-FathomServerHealth) unless
-        -Source overrides it. From the debug log the peak is exact, including seats held from
-        before -From; from lmstat it's the highest 5-minute reading, and buckets without a
-        reading are left out rather than shown as zero.
+        -Source overrides it; each point says which source it came from. From the debug log
+        the peak is exact, including seats held from before -From; from lmstat it's the
+        highest 5-minute reading. Buckets with no data are left out rather than shown as zero.
     .EXAMPLE
         Get-FathomUsageHistory -ServerId licsrv01 -Feature MATLAB -From (Get-Date).AddDays(-7)
     #>
@@ -40,6 +40,7 @@ function Get-FathomUsageHistory {
             $IntervalMinutes = if ($days -le 2) { 5 } elseif ($days -le 14) { 60 } else { 1440 }
         }
 
+        # Auto means "the server's own setting"; health turns that into log, lmstat or per-bucket auto.
         $resolved = if ($Source -ne 'Auto') {
             $Source.ToLowerInvariant()
         } else {
@@ -50,7 +51,7 @@ function Get-FathomUsageHistory {
         }
 
         $query = (Get-FathomSeriesSql -Source $resolved) + @'
-SELECT feature, bucket, peak_in_use, issued FROM series ORDER BY feature, bucket
+SELECT feature, bucket, peak_in_use, issued, source FROM series ORDER BY feature, bucket
 '@
         $parameters = @{
             server_id    = $ServerId
@@ -69,7 +70,7 @@ SELECT feature, bucket, peak_in_use, issued FROM series ORDER BY feature, bucket
                 BucketStart = $row.bucket
                 PeakInUse   = [int] $row.peak_in_use
                 Issued      = $row.issued
-                Source      = $resolved
+                Source      = $row.source
             }
         }
     }

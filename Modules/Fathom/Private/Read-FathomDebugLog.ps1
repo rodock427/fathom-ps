@@ -62,6 +62,7 @@ function Read-FathomDebugLog {
             SourceFile  = $LogPath
             SourceHash  = $fileKey
             CurrentDate = $position.CurrentDate
+            LastTime    = $position.LastTime
             LineNumber  = $position.LineNumber
         }
         $context = New-FathomParserContext @contextArgs
@@ -92,6 +93,7 @@ function Read-FathomDebugLog {
                 $eventsWritten += $written
                 $offset = $result.Offset + $end + 1
                 Save-FathomReadPosition -FileKey $fileKey -Path $LogPath -Offset $offset -EventsWritten $eventsWritten -Context $context
+                Save-FathomLogCoverage -FileKey $fileKey -ServerId $ServerId -InputObject $events
                 Complete-SqlTransaction -ConnectionName $script:ConnectionName
             } catch {
                 Undo-SqlTransaction -ConnectionName $script:ConnectionName

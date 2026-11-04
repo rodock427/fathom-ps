@@ -1,39 +1,39 @@
 {
  "afternoon": {
   "checkouts": {
-   "MATLAB": 16,
-   "MATLAB_Distrib_Comp_Engine": 25,
-   "SIMULINK": 31
+   "MATLAB": 5,
+   "MATLAB_Distrib_Comp_Engine": 10,
+   "SIMULINK": 8
   },
   "denials": {
-   "MATLAB": 2,
-   "MATLAB_Distrib_Comp_Engine": 1,
-   "SIMULINK": 1
+   "MATLAB": 1,
+   "MATLAB_Distrib_Comp_Engine": 0,
+   "SIMULINK": 0
   },
   "end": "2026-08-20T17:00:00",
   "peak": {
-   "MATLAB": 26,
-   "MATLAB_Distrib_Comp_Engine": 29,
-   "SIMULINK": 32
+   "MATLAB": 7,
+   "MATLAB_Distrib_Comp_Engine": 5,
+   "SIMULINK": 4
   },
   "start": "2026-08-20T13:00:00"
  },
  "whole-day": {
   "checkouts": {
-   "MATLAB": 113,
-   "MATLAB_Distrib_Comp_Engine": 104,
-   "SIMULINK": 120
+   "MATLAB": 33,
+   "MATLAB_Distrib_Comp_Engine": 30,
+   "SIMULINK": 28
   },
   "denials": {
-   "MATLAB": 8,
-   "MATLAB_Distrib_Comp_Engine": 15,
-   "SIMULINK": 14
+   "MATLAB": 3,
+   "MATLAB_Distrib_Comp_Engine": 2,
+   "SIMULINK": 3
   },
   "end": "2026-08-21T00:00:00",
   "peak": {
-   "MATLAB": 31,
-   "MATLAB_Distrib_Comp_Engine": 35,
-   "SIMULINK": 39
+   "MATLAB": 10,
+   "MATLAB_Distrib_Comp_Engine": 10,
+   "SIMULINK": 10
   },
   "start": "2026-08-20T00:00:00"
  }
