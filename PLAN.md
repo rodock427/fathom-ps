@@ -90,7 +90,7 @@ Channel (email or a Teams workflow webhook) is decided in phase 7.
 - **Ansible provisioning**: install PSU on Windows Server, put `lmutil` on it, and set up the service account and share permissions on license hosts. Code deploys via PSU Git sync, not Ansible.
 - Fathom push-ingest API compatibility, only if existing `Send-FathomLogs.ps1` installs need it.
 - **Grafana office-TV dashboard**, reading Postgres directly through a read-only database user.
-- **Department / manager scoping** and "my own usage": needs a user directory (AD, Microsoft Graph or LDAP).
+- **Directory enrichment via the ActiveDirectory module**: `Get-ADUser` for display name, department and manager behind each FlexLM username; `Get-ADComputer` for hosts. Enables department / manager scoping and "my own usage". Queries key on username and host, so this joins on without changing them. (Needs the RSAT AD module on the Windows PSU server; tests use a stand-in.)
 - **Monthly renewal report** as an Excel export (ImportExcel).
 
 ## Production prerequisites

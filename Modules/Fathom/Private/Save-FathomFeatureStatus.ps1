@@ -49,9 +49,14 @@ ON CONFLICT (server_id, feature) DO UPDATE SET
 
     $holderQuery = @'
 INSERT INTO live_sessions (server_id, feature, "user", host, display, version, handle, licenses, started_at, captured_at)
-VALUES (@server_id, @feature, @user, @host, @display, @version, @handle, @licenses, @started_at::timestamp, @captured_at::timestamp)
+VALUES (@server_id, @feature, @user, @host, @display, @version, @handle, @licenses, @started_at::timestamp, @captured_at::timestamp);
+
+INSERT INTO observed_sessions (server_id, feature, "user", host, handle, started_at, licenses, first_seen_at, last_seen_at)
+VALUES (@server_id, @feature, @user, @host, @handle, @started_at::timestamp, @licenses, @captured_at::timestamp, @captured_at::timestamp)
+ON CONFLICT (server_id, feature, "user", host, handle, started_at) DO UPDATE SET last_seen_at = EXCLUDED.last_seen_at;
 '@
-    foreach ($holder in $Status.Holders) {
+    # A holder whose start time couldn't be read can't be told apart from its next session.
+    foreach ($holder in $Status.Holders | Where-Object StartedAt) {
         $holderParameters = @{
             server_id   = $Status.ServerId
             feature     = $Status.Feature
