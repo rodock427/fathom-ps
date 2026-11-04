@@ -7,3 +7,5 @@ New-PSUScript -Name 'Scripts/Initialize-Database.ps1' -Path 'Scripts/Initialize-
     -Description 'Creates or upgrades the Fathom tables. Run after installing or updating.'
 New-PSUScript -Name 'Scripts/Send-Alerts.ps1' -Path 'Scripts/Send-Alerts.ps1' -ConcurrentJobs 1 -TimeOut 10 -MaxHistory 500 `
     -Description 'Records current alerts and mails a digest. Sends nothing until alerts are enabled.'
+New-PSUScript -Name 'Scripts/Sync-Directory.ps1' -Path 'Scripts/Sync-Directory.ps1' -ConcurrentJobs 1 -TimeOut 30 -MaxHistory 200 `
+    -Description 'Looks up seen users and hosts in Active Directory. Does nothing until directory lookups are on.'

@@ -92,7 +92,8 @@ Channel: email, one digest per run. A Teams workflow webhook could be added late
 - **Ansible provisioning**: install PSU on Windows Server, put `lmutil` on it, and set up the service account and share permissions on license hosts. Code deploys via PSU Git sync, not Ansible.
 - Fathom push-ingest API compatibility, only if existing `Send-FathomLogs.ps1` installs need it.
 - **Grafana office-TV dashboard**, reading Postgres directly through a read-only database user.
-- **Directory enrichment via the ActiveDirectory module**: `Get-ADUser` for display name, department and manager behind each FlexLM username; `Get-ADComputer` for hosts. Enables department / manager scoping and "my own usage". Queries key on username and host, so this joins on without changing them. (Needs the RSAT AD module on the Windows PSU server; tests use a stand-in.)
+- ~~Directory enrichment via the ActiveDirectory module~~ (done: every attribute cataloged, admins choose what's recorded and shown). Still to come on top of it: department / manager scoping and "my own usage".
+- **Hourly usage rollup** for year-long views on servers with hundreds of features (today a year at 5-minute samples is ~42M rows per big server).
 - **Monthly renewal report** as an Excel export (ImportExcel).
 
 ## Production prerequisites

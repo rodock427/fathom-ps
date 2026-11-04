@@ -111,15 +111,25 @@ Describe 'App pages' -Skip:(-not $canRender) {
         $null = Get-FathomServer | Sync-FathomLiveStatus -LmutilPath (Join-Path -Path $PSScriptRoot -ChildPath 'fakes/lmutil')
         $null = Get-FathomServer | Sync-FathomDebugLog
 
-        $users = 'alice', 'bob', 'carol', 'dave', 'starfire', 'raven'
+        # Active Directory from the fake: the default attributes recorded and shown.
+        $env:PSModulePath = (Join-Path -Path $PSScriptRoot -ChildPath 'fakes') + [IO.Path]::PathSeparator + $env:PSModulePath
+        Import-Module ActiveDirectory -Force
+        $null = Invoke-SqlUpdate -Query 'TRUNCATE ad_objects, ad_attributes'
+        $null = Set-FathomDirectorySetting -Enabled $true
+        $null = Sync-FathomDirectory
+
+        # Usernames, and the names Active Directory gives them.
+        $users = 'alice', 'bob', 'carol', 'dave', 'starfire', 'raven', 'Dave Diaz', 'Alice Archer'
         $reader = @('FathomReader')
         $operator = @('FathomOperator')
         $admin = @('FathomAdmin')
     }
 
     AfterAll {
+        $null = Set-FathomDirectorySetting -Enabled $false
         Disconnect-FathomDatabase
         $env:FAKE_LMUTIL_DIR = $null
+        Remove-Module ActiveDirectory -ErrorAction Ignore
     }
 
     It 'renders <Page> as <Tier> without an error component' -ForEach @(
@@ -181,6 +191,18 @@ Describe 'App pages' -Skip:(-not $canRender) {
         $people = Invoke-TestPage -Page People -Role $operator -Query @{ user = 'dave' }
         Get-TestId $people | Should -Contain 'people-sessions'
         Get-TestId $people | Should -Contain 'people-holders'
+    }
+
+    It 'shows operators what Active Directory says, as chosen on the admin page' {
+        $people = Invoke-TestPage -Page People -Role $operator -Query @{ user = 'dave' }
+        $text = Get-TestText $people
+
+        Get-TestId $people | Should -Contain 'people-directory'
+        $text | Should -Contain 'Dave Diaz'
+        $text | Should -Contain 'Manufacturing'
+        $text | Should -Contain 'Morgan Manager' -Because 'a distinguished name shows as its name'
+        $text | Should -Contain 'Department' -Because 'shown attributes become holder columns'
+        $text | Should -Contain 'Host OperatingSystem'
     }
 
     It 'gives admins the server list and settings' {

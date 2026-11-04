@@ -19,6 +19,17 @@ Use-FathomDatabase {
     if ($user) {
         $usage = Get-FathomUserUsage -User $user -From (Get-Date).AddDays(-90)
         New-UDCard -Title "$user, last 90 days" -Content {
+            # What Active Directory says about them: only the attributes an admin chose to show.
+            $directory = Get-FathomDirectoryObject -Kind user -Name $user
+            if ($directory.Found -and $directory.Attributes.Count) {
+                $details = foreach ($name in $directory.Attributes.Keys) {
+                    [pscustomobject] @{ Attribute = $name; Value = Format-FathomDirectoryValue $directory.Attributes[$name] }
+                }
+                New-FathomTable -Id 'people-directory' -Data $details -Columns ([ordered] @{ Attribute = 'Active Directory'; Value = '' })
+            } elseif ($directory -and -not $directory.Found) {
+                New-UDTypography -Id 'people-directory' -Variant body2 -Text 'Not found in Active Directory.'
+            }
+
             $sessions = $usage.Sessions | ForEach-Object {
                 [pscustomobject] @{
                     Server   = $_.ServerId
@@ -63,10 +74,12 @@ Use-FathomDatabase {
                 Server  = $_.ServerId
             }
         }
+        $columns = [ordered] @{ User = 'User'; Feature = 'Feature'; Since = 'Since'; Hours = 'Hours'; Host = 'Host'; Server = 'Server' }
+        $rows = Add-FathomDirectoryColumn -Rows $rows -Columns $columns
         $table = @{
             Id      = 'people-holders'
             Data    = $rows
-            Columns = [ordered] @{ User = 'User'; Feature = 'Feature'; Since = 'Since'; Hours = 'Hours'; Host = 'Host'; Server = 'Server' }
+            Columns = $columns
             Render  = @{
                 User  = { New-UDLink -Text $EventData.User -Url "people?user=$([uri]::EscapeDataString($EventData.User))" }
                 Hours = { New-UDChip -Label ([string] $EventData.Hours) -Color ($EventData.Long ? 'warning' : 'default') -Size small }

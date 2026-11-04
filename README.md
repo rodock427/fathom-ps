@@ -27,6 +27,7 @@ The repo root **is** the PSU repository (what PSU's Git sync points at).
 | Fathom: read debug logs | `Scripts/Sync-DebugLogs.ps1` | every minute |
 | Fathom: poll lmstat | `Scripts/Sync-LiveStatus.ps1` | every 5 minutes |
 | Fathom: alerts | `Scripts/Send-Alerts.ps1` | every 5 minutes, 2 minutes after each poll |
+| Fathom: directory | `Scripts/Sync-Directory.ps1` | hourly (does nothing until directory lookups are on) |
 
 `Scripts/Initialize-Database.ps1` isn't scheduled: run it once after installing **and after every update**. Until it runs, jobs that need new columns fail (and recover by themselves once it has).
 
@@ -44,14 +45,19 @@ Setup on the PSU server:
    Send-FathomAlert -Test
    Set-FathomAlertSetting -Enabled $true
    ```
-6. **Who sees what:** map each Fathom role to a directory group (Security > Roles: set the claim
+6. **Active Directory (optional):** install RSAT's ActiveDirectory module on the PSU server, then
+   turn lookups on in Administration. The PSU service account needs read access to AD; otherwise
+   add a secret variable `FathomDirectoryCredential` (a PSCredential). See [Active Directory](#active-directory).
+7. **Who sees what:** map each Fathom role to a directory group (Security > Roles: set the claim
    type and value, e.g. the group's SID with Windows sign-in). See [The app](#the-app).
 
-Local dev against the fake lmutil, with `.dev/` holding `debug.log` and `<host>.txt` lmstat answers:
+Local dev against the fake lmutil, with `.dev/` holding `debug.log` and `<host>.txt` lmstat answers,
+and the fake Active Directory:
 
 ```bash
 LM_POSTGRES_DSN=postgresql://license_manager:license_manager@localhost:5432/license_manager \
 FATHOM_LMUTIL=$PWD/tests/fakes/lmutil FAKE_LMUTIL_DIR=$PWD/.dev \
+FATHOM_AD_MODULE=$PWD/tests/fakes/ActiveDirectory/ActiveDirectory.psm1 \
   ~/Documents/Projects/General/Powershell/Powershell-Universal/start-psu.sh "$PWD"
 ```
 
@@ -75,6 +81,23 @@ PSU's built-in `Reader`, `Operator` and `Execute` roles give access to the PSU a
 `Operator` can edit scripts), so `.universal/roles.ps1` gives them to nobody by default: Fathom
 users need only a Fathom role. Your own local admin account keeps `Administrator`, which is
 assigned to it directly.
+
+## Active Directory
+
+Off until turned on (Administration > Active Directory). Then every hour Fathom looks up each FlexLM
+username and host it has seen (live, in the lmstat history, or in the last 90 days of log events)
+with `Get-ADUser` / `Get-ADComputer -Properties *`, again every `RefreshHours` (24).
+
+- **Every attribute** the directory returns is listed on the admin page, except binary ones (photos,
+  certificates). Names only: listing an attribute stores none of its values.
+- **Recorded** attributes have their values stored. Display name, department, title, email,
+  manager and office (and a host's description, OS and location) start recorded; everything else
+  starts off. Turning recording off deletes that attribute's values at once; turning it on fills
+  them in at the next lookup.
+- **Shown** attributes appear to operators and admins on the People page: in a user's lookup, and
+  as columns of who holds a seat now. Showing an attribute records it.
+
+Directory data is about individuals, so readers never see it.
 
 ## Develop
 
