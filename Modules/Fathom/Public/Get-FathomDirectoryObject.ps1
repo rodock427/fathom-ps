@@ -27,7 +27,7 @@ function Get-FathomDirectoryObject {
     if (-not $keys) {
         return
     }
-    $wanted = @(Get-FathomDirectoryAttribute -Kind $Kind | Where-Object { $All ? $_.Recorded : $_.Shown }).Name
+    $wanted = @(Get-FathomDirectoryAttribute -Kind $Kind | Where-Object { $All ? $_.Recorded : $_.Shown } | ForEach-Object Name)
 
     $query = 'SELECT name, found, attributes::text AS attributes, fetched_at FROM ad_objects WHERE kind = @kind AND name = ANY(@names)'
     foreach ($row in Invoke-FathomQuery -Query $query -Parameters @{ kind = $Kind; names = [string[]] $keys }) {
