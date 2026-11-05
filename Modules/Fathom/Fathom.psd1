@@ -31,6 +31,7 @@
         'Get-FathomServerUptime'
         'Get-FathomUsageHistory'
         'Get-FathomUserUsage'
+        'Import-FathomDebugLog'
         'Initialize-FathomSchema'
         'New-FathomParserContext'
         'Register-FathomServer'

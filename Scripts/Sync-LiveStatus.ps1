@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Polls every enabled server with lmstat: live usage, seat limits, up/down. Scheduled every 5 minutes.
+    Polls every enabled server that's due with lmstat: live usage, seat limits, up/down. Scheduled every 5 minutes.
 #>
 Import-Module Fathom
 
@@ -8,7 +8,7 @@ Import-Module Fathom
 Connect-FathomDatabase -Dsn ($FathomDsn ?? $env:LM_POSTGRES_DSN)
 try {
     # lmutil comes from FATHOM_LMUTIL, else PATH.
-    Get-FathomServer -Enabled | Sync-FathomLiveStatus
+    Get-FathomServer -Enabled -Due | Sync-FathomLiveStatus
 } finally {
     Disconnect-FathomDatabase
 }

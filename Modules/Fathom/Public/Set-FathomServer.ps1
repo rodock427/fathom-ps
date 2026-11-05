@@ -32,17 +32,27 @@ function Set-FathomServer {
 
         # What drives usage history. Auto: the debug log while it's healthy, lmstat otherwise.
         [ValidateSet('Auto', 'Log', 'Lmstat')]
-        [string] $UsageSource
+        [string] $UsageSource,
+
+        # How long lmstat may take. A very large server can need minutes.
+        [ValidateRange(5, 1500)]
+        [int] $PollTimeoutSeconds,
+
+        # Minutes between polls, taken up to the next run of the 5-minute schedule.
+        [ValidateRange(5, 1440)]
+        [int] $PollMinutes
     )
 
     process {
         $columns = @{
-            Name        = 'name'
-            LicenseSpec = 'license_spec'
-            LogPath     = 'log_path'
-            Vendor      = 'vendor'
-            Enabled     = 'enabled'
-            UsageSource = 'usage_source'
+            Name               = 'name'
+            LicenseSpec        = 'license_spec'
+            LogPath            = 'log_path'
+            Vendor             = 'vendor'
+            Enabled            = 'enabled'
+            UsageSource        = 'usage_source'
+            PollTimeoutSeconds = 'poll_timeout_seconds'
+            PollMinutes        = 'poll_minutes'
         }
 
         $assignments = [System.Collections.Generic.List[string]]::new()

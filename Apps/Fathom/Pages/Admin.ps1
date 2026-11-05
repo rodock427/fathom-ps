@@ -12,15 +12,17 @@ Use-FathomDatabase {
     New-UDCard -Title 'Monitored servers' -Content {
         $rows = Get-FathomServer | Sort-Object Name | ForEach-Object {
             [pscustomobject] @{
-                ServerId    = $_.ServerId
-                Name        = $_.Name
-                LicenseSpec = $_.LicenseSpec
-                LogPath     = $_.LogPath
-                Vendor      = $_.Vendor
-                UsageSource = $_.UsageSource
-                Enabled     = $_.Enabled
-                Status      = if ($_.Enabled) { $_.PollStatus ?? 'Not polled' } else { 'Paused' }
-                LastPoll    = Format-FathomTime $_.LastPolled
+                ServerId           = $_.ServerId
+                Name               = $_.Name
+                LicenseSpec        = $_.LicenseSpec
+                LogPath            = $_.LogPath
+                Vendor             = $_.Vendor
+                UsageSource        = $_.UsageSource
+                PollTimeoutSeconds = $_.PollTimeoutSeconds
+                PollMinutes        = $_.PollMinutes
+                Enabled            = $_.Enabled
+                Status             = if ($_.Enabled) { $_.PollStatus ?? 'Not polled' } else { 'Paused' }
+                LastPoll           = Format-FathomTime $_.LastPolled
             }
         }
         $table = @{
@@ -54,14 +56,18 @@ Use-FathomDatabase {
                                         New-UDSelectOption -Name 'The debug log' -Value 'Log'
                                         New-UDSelectOption -Name 'lmstat' -Value 'Lmstat'
                                     }
+                                    New-UDTextbox -Id 'editPollTimeoutSeconds' -Label 'lmstat time limit (seconds)' -Type number -Value $server.PollTimeoutSeconds -FullWidth
+                                    New-UDTextbox -Id 'editPollMinutes' -Label 'Poll every (minutes, runs in 5-minute steps)' -Type number -Value $server.PollMinutes -FullWidth
                                 } -OnSubmit {
                                     if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { throw 'Not authorized.' }
                                     $change = @{
-                                        ServerId    = $server.ServerId
-                                        LicenseSpec = [string] $EventData.editLicenseSpec
-                                        LogPath     = [string] $EventData.editLogPath
-                                        Vendor      = [string] $EventData.editVendor
-                                        UsageSource = $EventData.editUsageSource
+                                        ServerId           = $server.ServerId
+                                        LicenseSpec        = [string] $EventData.editLicenseSpec
+                                        LogPath            = [string] $EventData.editLogPath
+                                        Vendor             = [string] $EventData.editVendor
+                                        UsageSource        = $EventData.editUsageSource
+                                        PollTimeoutSeconds = [int] $EventData.editPollTimeoutSeconds
+                                        PollMinutes        = [int] $EventData.editPollMinutes
                                     }
                                     if ($EventData.editName) { $change.Name = $EventData.editName }
                                     $null = Use-FathomDatabase { Set-FathomServer @change }
@@ -75,6 +81,24 @@ Use-FathomDatabase {
                             $result = Use-FathomDatabase { Get-FathomServer -ServerId $server.ServerId | Sync-FathomLiveStatus }
                             Show-UDToast -Message "$($server.Name): $($result.Status)"
                             Invoke-UDRedirect -Url 'admin'
+                        }
+                        New-UDButton -Text 'Import log' -Size small -OnClick {
+                            Show-UDModal -Header { New-UDTypography -Variant h6 -Text "Import a debug log into $($server.Name)" } -Content {
+                                New-UDTypography -Variant body2 -Text 'For a copy or an old log: its history is added once, and nothing watches the file afterwards. The path is read from the PSU server, so it can be a local file or a share. Two files covering the same dates would be counted twice.'
+                                New-UDForm -Id 'admin-import-log' -Children {
+                                    New-UDTextbox -Id 'importPath' -Label 'Path to the log file' -FullWidth
+                                } -OnSubmit {
+                                    if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { throw 'Not authorized.' }
+                                    $path = [string] $EventData.importPath
+                                    Hide-UDModal
+                                    if (-not $path -or -not (Test-Path -LiteralPath $path -PathType Leaf)) {
+                                        Show-UDToast -Message "Can't find '$path' from the PSU server."
+                                        return
+                                    }
+                                    $null = Invoke-PSUScript -Name 'Scripts/Import-DebugLog.ps1' -Integrated -Parameters @{ ServerId = $server.ServerId; Path = $path }
+                                    Show-UDToast -Message 'Import started. Follow it under Automation, Jobs.'
+                                }
+                            }
                         }
                         New-UDButton -Text ($server.Enabled ? 'Pause' : 'Resume') -Size small -OnClick {
                             if (-not (Test-FathomAccess -Tier Admin -Role $Roles)) { throw 'Not authorized.' }
