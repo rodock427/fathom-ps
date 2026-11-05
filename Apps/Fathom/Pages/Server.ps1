@@ -102,9 +102,9 @@ Use-FathomDatabase {
                     }
                 }
                 foreach ($feature in $history | Group-Object Feature | Sort-Object Name) {
-                    $points = $feature.Group | Sort-Object BucketStart | ForEach-Object {
-                        [pscustomobject] @{ Time = $_.BucketStart.ToString($timeframe.LabelFormat); InUse = $_.PeakInUse; Seats = $_.Issued }
-                    }
+                    $points = @($feature.Group | Sort-Object BucketStart | ForEach-Object {
+                            [pscustomobject] @{ Time = $_.BucketStart.ToString($timeframe.LabelFormat); InUse = $_.PeakInUse; Seats = $_.Issued }
+                        })
                     $width = if ($charted.Count -eq 1) { 12 } else { 6 }
                     New-UDGrid -Item -ExtraSmallSize 12 -MediumSize $width -Children {
                         New-UDCard -Title $feature.Name -Content {
@@ -119,7 +119,8 @@ Use-FathomDatabase {
                                 )
                                 Options       = @{
                                     maintainAspectRatio = $false
-                                    elements            = @{ point = @{ radius = 0 }; line = @{ stepped = $true } }
+                                    # One reading (a server just added) has no line to draw, so it shows as a dot.
+                                    elements            = @{ point = @{ radius = ($points.Count -gt 1 ? 0 : 3) }; line = @{ stepped = $true } }
                                     scales              = @{
                                         x = @{ ticks = @{ maxRotation = 0; autoSkip = $true; autoSkipPadding = 24; maxTicksLimit = 4 } }
                                         y = @{ beginAtZero = $true; ticks = @{ precision = 0 } }

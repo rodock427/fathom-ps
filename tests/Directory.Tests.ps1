@@ -156,6 +156,15 @@ INSERT INTO live_sessions (server_id, feature, "user", host, captured_at) VALUES
         (Get-FathomDirectoryObject -Kind user -Name ghost).Found | Should -BeFalse
     }
 
+    It 'returns a name the directory lacks when no attribute is known yet' {
+        $null = Invoke-SqlUpdate -Query 'DELETE FROM live_sessions WHERE "user" = ''Dave'''
+        (Sync-FathomDirectory).Found | Should -Be 0
+
+        $object = Get-FathomDirectoryObject -Kind user -Name ghost
+        $object.Found | Should -BeFalse
+        $object.Attributes.Count | Should -Be 0
+    }
+
     It 'keeps a history of changes, without repeating unchanged values' {
         $null = Sync-FathomDirectory
         $null = Invoke-SqlUpdate -Query "UPDATE ad_objects SET fetched_at = '-infinity'"
