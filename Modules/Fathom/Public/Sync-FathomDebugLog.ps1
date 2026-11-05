@@ -25,7 +25,10 @@ function Sync-FathomDebugLog {
 
         # Bytes read per transaction. Bounds memory on a large first read.
         [ValidateRange(4KB, 256MB)]
-        [int] $ChunkSize = 4MB
+        [int] $ChunkSize = 4MB,
+
+        # The date of lines before the log's first date marker. Without one they're dated today.
+        [Nullable[datetime]] $StartDate
     )
 
     process {
@@ -34,7 +37,7 @@ function Sync-FathomDebugLog {
             return
         }
 
-        $result = Read-FathomDebugLog -ServerId $ServerId -LogPath $LogPath -ChunkSize $ChunkSize
+        $result = Read-FathomDebugLog -ServerId $ServerId -LogPath $LogPath -ChunkSize $ChunkSize -StartDate $StartDate
 
         $query = @'
 UPDATE monitored_servers SET

@@ -10,7 +10,8 @@ function Get-FathomServerHealth {
 
         EffectiveSource is where usage history comes from: log, lmstat, or auto (per time
         bucket, the log where it has coverage and lmstat to fill its gaps, such as while a log
-        share was unreachable). Usage source Auto resolves to auto when the server has both
+        share was unreachable). A log imported as history counts as a source. Usage source
+        Auto resolves to auto when the server has both
         sources, but to lmstat while the log's count has drifted, because then none of its
         numbers can be trusted. Log and Lmstat force one.
     .EXAMPLE
@@ -39,7 +40,8 @@ function Get-FathomServerHealth {
     process {
         $query = @'
 SELECT s.server_id, s.name, s.enabled, s.license_spec, s.log_path, s.usage_source,
-       s.last_polled_at, s.last_poll_status, s.last_poll_message,
+       s.last_polled_at, s.last_poll_status, s.last_poll_message, s.poll_minutes,
+       EXISTS (SELECT 1 FROM log_coverage c WHERE c.server_id = s.server_id) AS has_log_history,
        s.last_log_read_at, s.last_log_status, s.last_log_error,
        -- Before log health was recorded, the newest stored event is the best evidence.
        COALESCE(s.last_log_line_at, (SELECT MAX(timestamp) FROM license_events e WHERE e.server_id = s.server_id)) AS last_log_line_at,
@@ -50,12 +52,19 @@ SELECT s.server_id, s.name, s.enabled, s.license_spec, s.log_path, s.usage_sourc
        (SELECT COUNT(*) FROM license_events e
          WHERE e.server_id = s.server_id AND e.event_type = 'unsupported' AND e.timestamp >= @week_ago::timestamp) AS unparsed_lines,
        -- Seats in use by the log's running count vs the latest lmstat reading, per feature.
-       -- Missing lines, or an lmgrd restart with seats out, make them disagree.
+       -- Missing lines make them disagree. A restart frees every seat, so only events since count.
        (SELECT SUM(ABS(COALESCE(lg.in_use, 0) - l.licenses_in_use))
           FROM live_status l
           LEFT JOIN (SELECT feature, SUM(CASE event_type WHEN 'checkout' THEN unit_count ELSE -unit_count END) AS in_use
                        FROM license_events e
+                       LEFT JOIN (SELECT vendor_daemon, MAX(timestamp) AS restarted FROM license_events r
+                                   WHERE r.server_id = s.server_id AND r.event_type IN ('vendor_daemon_up', 'vendor_daemon_down')
+                                   GROUP BY 1) v ON v.vendor_daemon = e.vendor_daemon
                       WHERE e.server_id = s.server_id AND e.event_type IN ('checkout', 'checkin')
+                        AND e.timestamp >= COALESCE(v.restarted, '-infinity')
+                        AND e.timestamp >= COALESCE((SELECT MAX(r.timestamp) FROM license_events r
+                                                      WHERE r.server_id = s.server_id AND r.event_type IN ('server_up', 'server_down')),
+                                                    '-infinity')
                       GROUP BY feature) lg ON lg.feature = l.feature
          WHERE l.server_id = s.server_id AND l.captured_at = s.last_polled_at
            AND EXISTS (SELECT 1 FROM license_events e WHERE e.server_id = s.server_id)) AS log_drift
@@ -70,7 +79,9 @@ ORDER BY s.server_id
         }
 
         foreach ($row in Invoke-FathomQuery -Query $query -Parameters $parameters) {
-            $pollStale = $row.license_spec -and (-not $row.last_polled_at -or $row.last_polled_at -lt $now.AddMinutes(-$PollStaleMinutes))
+            # Three missed polls, however often this server is polled.
+            $staleAfter = [Math]::Max($PollStaleMinutes, 3 * $row.poll_minutes)
+            $pollStale = $row.license_spec -and (-not $row.last_polled_at -or $row.last_polled_at -lt $now.AddMinutes(-$staleAfter))
             # Only judged against lmstat: without it, a quiet log can't be told from an idle server.
             $logQuiet = -not $row.last_log_line_at -or $row.last_log_line_at -lt $now.AddMinutes(-$LogStaleMinutes)
             $logStale = $row.log_path -and $row.license_spec -and $row.seats_in_use -gt 0 -and $logQuiet
@@ -80,7 +91,7 @@ ORDER BY s.server_id
                 'log' { 'log' }
                 'lmstat' { 'lmstat' }
                 default {
-                    if ($drifted -or -not $row.log_path) {
+                    if ($drifted -or -not ($row.log_path -or $row.has_log_history)) {
                         'lmstat'
                     } elseif (-not $row.license_spec) {
                         'log'
@@ -126,6 +137,7 @@ ORDER BY s.server_id
                 UnparsedLines   = [int] $row.unparsed_lines
                 UsageSource     = $row.usage_source
                 EffectiveSource = $effectiveSource
+                HasLogHistory   = [bool] ($row.log_path -or $row.has_log_history)
             }
         }
     }

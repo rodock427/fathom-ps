@@ -8,7 +8,8 @@ function Read-FathomDebugLog {
     param(
         [Parameter(Mandatory)] [string] $ServerId,
         [Parameter(Mandatory)] [string] $LogPath,
-        [Parameter(Mandatory)] [int] $ChunkSize
+        [Parameter(Mandatory)] [int] $ChunkSize,
+        [Nullable[datetime]] $StartDate
     )
 
     $result = [pscustomobject] @{
@@ -61,7 +62,7 @@ function Read-FathomDebugLog {
             ServerId    = $ServerId
             SourceFile  = $LogPath
             SourceHash  = $fileKey
-            CurrentDate = $position.CurrentDate
+            CurrentDate = $position.CurrentDate ?? $StartDate
             LastTime    = $position.LastTime
             LineNumber  = $position.LineNumber
         }

@@ -37,22 +37,48 @@ lmstat_series AS (
 "@
 
     # From the debug log: seats in use is a running sum of checkouts (+units) and checkins
-    # (-units), Fathom's definition exactly: checkins first at a shared second, and seats held
-    # from before @from carried in. It drifts if lines go missing or lmgrd restarts with seats
-    # out; Get-FathomServerHealth compares it with lmstat and stops trusting it when it does.
+    # (-units): checkins first at a shared second, and seats held from before @from carried in.
+    # A restart frees every seat with no checkin lines, so the count starts again at each one
+    # (lmgrd for all features, a vendor daemon for its own); without that, seats out at a restart
+    # would be counted as held for ever. Stored events are never changed. The count drifts if
+    # lines go missing; Get-FathomServerHealth compares it with lmstat and stops trusting it then.
     $log = @"
-changes AS (
-    SELECT feature, timestamp AS ts,
+seat_events AS (
+    SELECT feature, vendor_daemon, timestamp AS ts,
            CASE event_type WHEN 'checkout' THEN unit_count ELSE -unit_count END AS delta
     FROM license_events
     WHERE server_id = @server_id AND event_type IN ('checkout', 'checkin') AND timestamp < @to::timestamp
       AND (@all_features OR feature = ANY(@features))
 ),
+restarts AS (
+    SELECT timestamp AS ts, CASE WHEN event_type LIKE 'vendor%' THEN vendor_daemon END AS vendor_daemon
+    FROM license_events
+    WHERE server_id = @server_id AND timestamp < @to::timestamp
+      AND event_type IN ('server_up', 'server_down', 'vendor_daemon_up', 'vendor_daemon_down')
+),
+feature_vendors AS (SELECT DISTINCT feature, vendor_daemon FROM seat_events),
+-- Each feature's restarts, in order: which run a change falls in is then a lookup.
+runs AS (
+    SELECT f.feature, f.vendor_daemon, array_agg(r.ts ORDER BY r.ts) AS started
+    FROM feature_vendors f
+    JOIN restarts r ON r.vendor_daemon IS NULL OR r.vendor_daemon = f.vendor_daemon
+    GROUP BY 1, 2
+),
+-- A zero change at each restart, so the count drops then, not at the feature's next checkout.
+changes AS (
+    SELECT feature, vendor_daemon, ts, delta FROM seat_events
+    UNION ALL
+    SELECT f.feature, f.vendor_daemon, r.ts, 0
+    FROM feature_vendors f
+    JOIN restarts r ON r.vendor_daemon IS NULL OR r.vendor_daemon = f.vendor_daemon
+),
 features AS (SELECT DISTINCT feature FROM changes),
 running AS (
-    SELECT feature, ts, delta,
-           SUM(delta) OVER (PARTITION BY feature ORDER BY ts, delta ROWS UNBOUNDED PRECEDING) AS in_use
-    FROM changes
+    SELECT c.feature, c.ts, c.delta,
+           SUM(c.delta) OVER (PARTITION BY c.feature, COALESCE(width_bucket(c.ts, u.started), 0)
+                              ORDER BY c.ts, c.delta ROWS UNBOUNDED PRECEDING) AS in_use
+    FROM changes c
+    LEFT JOIN runs u ON u.feature = c.feature AND u.vendor_daemon = c.vendor_daemon
 ),
 carried_in AS (
     SELECT DISTINCT ON (feature) feature, in_use

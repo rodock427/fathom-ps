@@ -35,7 +35,7 @@ function Get-FathomCapacityReport {
 
         foreach ($server in Get-FathomServerHealth -ServerId $ServerId | Where-Object Status -NE 'Disabled') {
             $source = $server.EffectiveSource
-            $hasLog = [bool] (Get-FathomServer -ServerId $server.ServerId).LogPath
+            $hasLog = $server.HasLogHistory
 
             # Active users come from the same sources as the usage numbers.
             $logUsers = 'SELECT feature, "user" FROM license_events WHERE server_id = @server_id AND event_type = ''checkout'' AND timestamp >= @from::timestamp AND timestamp < @to::timestamp'

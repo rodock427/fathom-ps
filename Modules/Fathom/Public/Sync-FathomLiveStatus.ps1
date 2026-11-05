@@ -7,7 +7,9 @@ function Sync-FathomLiveStatus {
         lmstat-only servers have a history), replaces the current holders in live_sessions,
         and updates seats and expiry in feature_inventory without touching admin-entered cost.
         Each vendor daemon's state goes to vendor_daemon_status. The outcome (Up, Degraded when
-        a vendor daemon is down, Down or Timeout) is kept on the server record.
+        a vendor daemon is down, Down or Timeout) is kept on the server record. A poll that
+        timed out keeps no feature data: what lmstat printed by then is only part of the server.
+        A server already being polled, by a schedule or Poll now, is skipped (Status Skipped).
     .EXAMPLE
         Get-FathomServer -Enabled | Sync-FathomLiveStatus -LmutilPath 'C:\FlexLM\lmutil.exe'
     #>
@@ -25,7 +27,10 @@ function Sync-FathomLiveStatus {
         # lmutil executable. Defaults to $env:FATHOM_LMUTIL, then lmutil on PATH.
         [string] $LmutilPath = ($env:FATHOM_LMUTIL ?? 'lmutil'),
 
-        [ValidateRange(1, 600)]
+        # A server's own setting when piped from Get-FathomServer.
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [Alias('PollTimeoutSeconds')]
+        [ValidateRange(1, 3600)]
         [int] $TimeoutSeconds = 60
     )
 
@@ -40,9 +45,27 @@ function Sync-FathomLiveStatus {
             return
         }
 
-        $polledAt = Get-Date
-        $run = Invoke-FathomLmutil -Path $lmutil -ArgumentList 'lmstat', '-a', '-c', $LicenseSpec -TimeoutSeconds $TimeoutSeconds
-        $statuses = @($run.Output | ConvertFrom-FathomLmstat -ServerId $ServerId -CapturedAt $polledAt)
+        # Held by this connection until released, or until the connection ends with its job.
+        $lock = @{ server_id = $ServerId }
+        if (-not (Invoke-FathomQuery -Query 'SELECT pg_try_advisory_lock(hashtext(''fathom-poll''), hashtext(@server_id)) AS locked' -Parameters $lock).locked) {
+            Write-Verbose "${ServerId}: already being polled, skipping."
+            return [pscustomobject] @{
+                PSTypeName = 'Fathom.PollResult'
+                ServerId   = $ServerId
+                Status     = 'Skipped'
+                Features   = 0
+                Holders    = 0
+                Message    = 'Already being polled.'
+                PolledAt   = Get-Date
+            }
+        }
+        try {
+            $polledAt = Get-Date
+            $run = Invoke-FathomLmutil -Path $lmutil -ArgumentList 'lmstat', '-a', '-c', $LicenseSpec -TimeoutSeconds $TimeoutSeconds
+        } finally {
+            $null = Invoke-FathomQuery -Query 'SELECT pg_advisory_unlock(hashtext(''fathom-poll''), hashtext(@server_id))' -Parameters $lock
+        }
+        $statuses = if ($run.TimedOut) { @() } else { @($run.Output | ConvertFrom-FathomLmstat -ServerId $ServerId -CapturedAt $polledAt) }
 
         $health = Get-FathomLmstatHealth -Output $run.Output
         $downDaemons = @($health.Daemons | Where-Object { -not $_.Up })

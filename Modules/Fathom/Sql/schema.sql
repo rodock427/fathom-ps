@@ -84,6 +84,9 @@ CREATE TABLE IF NOT EXISTS monitored_servers (
 ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_polled_at TIMESTAMP;
 ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_poll_status TEXT;
 ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_poll_message TEXT;
+-- How long lmstat may take on this server, and how often to run it (fathom-ps only).
+ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS poll_timeout_seconds INTEGER NOT NULL DEFAULT 60;
+ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS poll_minutes INTEGER NOT NULL DEFAULT 5;
 
 -- Health of each server's debug log, to spot a share that quietly stopped (fathom-ps only).
 ALTER TABLE monitored_servers ADD COLUMN IF NOT EXISTS last_log_read_at TIMESTAMP;

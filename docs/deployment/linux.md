@@ -138,6 +138,22 @@ file name). The next minute's read starts at the top of the log; a large first r
 chunks and can take a few minutes. After that, Server detail shows `Debug log: Synced`, denials
 appear for operators, and usage history comes from the log wherever the log covers it.
 
+### Import an old log (optional)
+
+To load history from a copy or an old log, use **Import log** on the server in Administration and
+give a path the PSU machine can read. It's added once as a job (see Automation > Jobs), and nothing
+watches the file afterwards, so a copy never shows as stale. Running it again carries on from where
+it stopped and adds nothing twice, but two different files covering the same dates are counted twice.
+History from the log is used where the log has lines, and lmstat everywhere else.
+
+### A large or slow server
+
+If a poll shows `Timeout`, raise **lmstat time limit** under Edit in Administration (60 seconds by
+default). A poll that times out keeps nothing, because a cut-off answer is only part of the server.
+**Poll every** sets how often that server is polled, in steps of the 5-minute schedule. A server
+already being polled is skipped, never polled twice at once. Servers are polled one after another,
+so one slow server holds up those behind it, and a run that goes past 5 minutes uses up the next.
+
 ### Check it's right
 
 - **Server detail > Health:** `Healthy`, with a recent lmstat poll and, if you added the log, `Synced`.
