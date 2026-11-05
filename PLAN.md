@@ -96,7 +96,7 @@ Channel: email, one digest per run. A Teams workflow webhook could be added late
 - **Grafana office-TV dashboard**, reading Postgres directly through a read-only database user.
 - ~~Directory enrichment via the ActiveDirectory module~~ (done: every attribute cataloged, admins choose what's recorded and shown). Still to come on top of it: department / manager scoping and "my own usage".
 - **Hourly usage rollup** for year-long views on servers with hundreds of features (today a year at 5-minute samples is ~42M rows per big server).
-- **Monthly renewal report** as an Excel export (ImportExcel).
+- **Scheduled reports**: email a report each month. Today's reports and Excel exports are run by hand.
 
 ## Production prerequisites
 

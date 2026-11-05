@@ -3,9 +3,9 @@
 ARG PSU_TAG=2026.2.3-ubuntu-24.04
 FROM docker.io/devolutions/powershell-universal:${PSU_TAG}
 
-# SimplySql for the Fathom module. The image ships PSU's host without its execute bit, and has no
+# SimplySql for the Fathom module, ImportExcel for its Excel reports. The image ships PSU's host without its execute bit, and has no
 # LSB loader, which FlexLM's Linux lmutil asks for.
-RUN pwsh -NoProfile -Command "Install-PSResource -Name SimplySql -Version 2.2.0.106 -Scope AllUsers -TrustRepository -Quiet" \
+RUN pwsh -NoProfile -Command "Install-PSResource -Name SimplySql -Version 2.2.0.106 -Scope AllUsers -TrustRepository -Quiet; Install-PSResource -Name ImportExcel -Version 7.8.10 -Scope AllUsers -TrustRepository -Quiet" \
     && chmod +x /home/Universal/PowerShellUniversal.Host /home/Universal/Hosts/*/PowerShellUniversal.Host \
     && ln -s /lib64/ld-linux-x86-64.so.2 /lib64/ld-lsb-x86-64.so.3
 

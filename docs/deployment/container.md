@@ -2,7 +2,7 @@
 
 [Deployment overview](README.md) · [Linux](linux.md) · [Windows](windows.md)
 
-The image is PSU's own (`devolutions/powershell-universal`, 2026.2.3 on Ubuntu 24.04) plus SimplySql and
+The image is PSU's own (`devolutions/powershell-universal`, 2026.2.3 on Ubuntu 24.04) plus SimplySql, ImportExcel and
 this repo, baked in as PSU's repository. `compose.yaml` runs it next to Postgres. Podman is shown;
 `docker` and `docker compose` take exactly the same commands.
 

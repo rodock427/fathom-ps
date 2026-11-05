@@ -29,7 +29,7 @@ variables:
 steps:
   - pwsh: |
       # Universal: PSU's app cmdlets, so the page tests can render pages without a server.
-      $modules = @{ Pester = '6.2.0'; PSScriptAnalyzer = '1.25.0'; SimplySql = '2.2.0.106'; Universal = '2026.2.3' }
+      $modules = @{ Pester = '6.2.0'; PSScriptAnalyzer = '1.25.0'; SimplySql = '2.2.0.106'; ImportExcel = '7.8.10'; Universal = '2026.2.3' }
       foreach ($name in $modules.Keys) {
           Install-PSResource -Name $name -Version $modules[$name] -TrustRepository -Quiet
       }

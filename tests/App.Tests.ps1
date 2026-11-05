@@ -15,7 +15,7 @@ BeforeAll {
     $pages = Join-Path -Path $PSScriptRoot -ChildPath '../Apps/Fathom/Pages'
 
     # A page renders as PSU would run it: $Roles and $Query set, the components as output.
-    function Invoke-TestPage([string] $Page, [string[]] $Role, [hashtable] $Query = @{}) {
+    function Invoke-TestPage([string] $Page, [string[]] $Role, [hashtable] $Query = @{}, [string] $reportName = 'seat-planning') {
         $Roles = $Role
         . (Join-Path -Path $pages -ChildPath "$Page.ps1")
     }
@@ -136,7 +136,7 @@ Describe 'App pages' -Skip:(-not $canRender) {
         @{ Page = 'Overview'; Tier = 'FathomReader' }
         @{ Page = 'Overview'; Tier = 'FathomOperator' }
         @{ Page = 'Server'; Tier = 'FathomOperator' }
-        @{ Page = 'SeatPlanning'; Tier = 'FathomOperator' }
+        @{ Page = 'Report'; Tier = 'FathomOperator' }
         @{ Page = 'People'; Tier = 'FathomOperator' }
         @{ Page = 'Admin'; Tier = 'FathomAdmin' }
     ) {
@@ -170,7 +170,7 @@ Describe 'App pages' -Skip:(-not $canRender) {
     }
 
     It 'turns away a reader from the <Page> page entirely' -ForEach @(
-        @{ Page = 'SeatPlanning' }
+        @{ Page = 'Report' }
         @{ Page = 'People' }
         @{ Page = 'Admin' }
     ) {
@@ -187,7 +187,7 @@ Describe 'App pages' -Skip:(-not $canRender) {
     }
 
     It 'gives operators seat planning, and one user''s history without everyone else' {
-        Get-TestId (Invoke-TestPage -Page SeatPlanning -Role $operator) | Should -Contain 'capacity-report'
+        Get-TestId (Invoke-TestPage -Page Report -Role $operator) | Should -Contain 'report-seat-planning'
         $one = Get-TestId (Invoke-TestPage -Page People -Role $operator -Query @{ user = 'dave' })
         $one | Should -Contain 'people-profile'
         $one | Should -Contain 'people-sessions'
@@ -306,6 +306,10 @@ Describe 'Timeframes' {
         & $bucket 20 | Should -Be 15
         & $bucket (24 * 5) | Should -Be 60
         & $bucket (24 * 400) | Should -Be 1440
+    }
+
+    It 'reaches the query string helper from the module, as event handlers must' {
+        (Get-Command -Name ConvertTo-FathomQueryString).ModuleName | Should -Be 'Fathom'
     }
 
     It 'builds a query string without empty values' {
