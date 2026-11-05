@@ -29,6 +29,7 @@ The PowerShell modules, at the versions CI uses. `Universal` must match the PSU 
 
 ```bash
 pwsh -c 'Install-PSResource -TrustRepository -Name SimplySql -Version 2.2.0.106
+         Install-PSResource -TrustRepository -Name ImportExcel -Version 7.8.10
          Install-PSResource -TrustRepository -Name Pester -Version 6.2.0
          Install-PSResource -TrustRepository -Name PSScriptAnalyzer -Version 1.25.0
          Install-PSResource -TrustRepository -Name Universal -Version 2026.2.3'

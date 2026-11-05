@@ -12,8 +12,9 @@ $pages = @(
     New-UDPage -Name 'People' -Url '/people' -Icon (New-UDIcon -Icon 'users') -Role (Get-FathomRole -Tier Operator) -Content {
         . "$AppRoot/Pages/People.ps1"
     }
-    New-UDPage -Name 'Seat planning' -Url '/seat-planning' -Icon (New-UDIcon -Icon 'chart-line') -Role (Get-FathomRole -Tier Operator) -Content {
-        . "$AppRoot/Pages/SeatPlanning.ps1"
+    # Every report shares a page; the URL says which, as $reportName.
+    New-UDPage -Name 'Reports' -Url '/reports/:reportName' -Icon (New-UDIcon -Icon 'folder-open') -Role (Get-FathomRole -Tier Operator) -Content {
+        . "$AppRoot/Pages/Report.ps1"
     }
     New-UDPage -Name 'Administration' -Url '/admin' -Icon (New-UDIcon -Icon 'gear') -Role (Get-FathomRole -Tier Admin) -Content {
         . "$AppRoot/Pages/Admin.ps1"
@@ -28,7 +29,9 @@ $navigation = {
         if (Test-FathomAccess -Tier Operator -Role $Roles) {
             New-UDListItem -Label 'People' -Icon (New-UDIcon -Icon 'users') -Href 'people'
             New-UDListItem -Label 'Reports' -Icon (New-UDIcon -Icon 'folder-open') -Open -Children {
-                New-UDListItem -Label 'Seat planning' -Icon (New-UDIcon -Icon 'chart-line') -Href 'seat-planning' -Nested
+                foreach ($report in Get-FathomReportCatalog) {
+                    New-UDListItem -Label $report.Title -Icon (New-UDIcon -Icon $report.Icon) -Href "reports/$($report.Name)" -Nested
+                }
             }
         }
         if (Test-FathomAccess -Tier Admin -Role $Roles) {

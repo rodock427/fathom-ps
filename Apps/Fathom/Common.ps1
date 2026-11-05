@@ -143,18 +143,6 @@ function Get-FathomTimeframe {
     }
 }
 
-function ConvertTo-FathomQueryString {
-    <#
-    .SYNOPSIS
-        A query string from a hashtable, leaving out empty values.
-    #>
-    param([hashtable] $Query = @{})
-
-    ($Query.GetEnumerator() | Where-Object { $null -ne $_.Value -and '' -ne $_.Value } | Sort-Object Key | ForEach-Object {
-        '{0}={1}' -f $_.Key, [uri]::EscapeDataString([string] $_.Value)
-    }) -join '&'
-}
-
 function New-FathomTimeframePicker {
     <#
     .SYNOPSIS

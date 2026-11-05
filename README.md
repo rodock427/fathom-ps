@@ -60,7 +60,7 @@ At `/fathom`, signed in. Each tier includes the ones before it; PSU's own `Admin
 | **Overview** | Free seats, server health, current alerts, licenses expiring soon | + denials in a chosen period | same |
 | **Server detail** | Tabs: use against seats charted for the 8 busiest features (or any one); every feature with its peak; health and uptime | + tabs for who holds a seat, denials, and recent log activity | same |
 | **People** | | Who holds a seat now (long sessions flagged), and search by name. One person: their Active Directory details, then tabs for sessions, log events and directory changes | same |
-| **Reports > Seat planning** | | Per feature: peak, typical (P95), time at capacity, denials, users denied, active users, underused; one server or all; export to CSV or Excel | same |
+| **Reports** | | Seat planning, usage history, denials, top users, expiring licenses, server uptime and current seat holders. Each has its own options, and exports to CSV or Excel; usage history and seat planning workbooks include charts | same |
 | **Administration** | | | Add, edit, pause and poll servers; alert settings; Active Directory settings and attributes |
 
 Every page with history takes a period: preset buttons (24 hours to a year) or a custom From/To
@@ -146,7 +146,7 @@ matches people in two domains, it's left unmatched rather than guessed.
 
 **Usernames that match the same account are one person:** someone seen as both `dave` and
 `dave.diaz` has one page (with "Also seen as") covering both, appears once in search, and counts
-once in Seat planning's active and denied users. A username AD doesn't know is a person of its own.
+once in Seat planning's active and denied users, and in Top users. A username AD doesn't know is a person of its own.
 
 - **Every attribute** the directory returns is listed in Administration, except binary ones such
   as photos. The list holds names only, never values.
@@ -167,7 +167,7 @@ Directory data is about individuals, so readers never see it.
 
 The [Linux](docs/deployment/linux.md#1-dev-only) and [Windows](docs/deployment/windows.md#1-dev-only)
 guides cover installing everything. Once PowerShell 7.4+, Podman (or Docker), the modules
-(`SimplySql`, `Pester` 6, `PSScriptAnalyzer`, `Universal`) and a PSU ZIP are in place:
+(`SimplySql`, `ImportExcel`, `Pester` 6, `PSScriptAnalyzer`, `Universal`) and a PSU ZIP are in place:
 
 ```bash
 export LM_POSTGRES_DSN=postgresql://license_manager:license_manager@localhost:5432/license_manager
@@ -233,6 +233,8 @@ Each returns plain objects; the app decides who sees which.
 | `Get-FathomServerUptime` | Reader | Uptime and outages from the poll history |
 | `Get-FathomAlert` | Reader | The alerts in effect right now |
 | `Get-FathomCapacityReport` | Operator | Peak, 95th percentile, time at capacity, denials, active users, underused |
+| `Get-FathomReportCatalog`, `Get-FathomReport`, `Export-FathomReport` | Operator | The standard reports and their options; run one; write it to CSV or Excel (Excel needs `ImportExcel`) |
+| `Get-FathomTopUser` | Operator | The people who held licenses longest in a period |
 | `Get-FathomLicenseHolder` | Operator | Who holds a seat now, flagging long sessions |
 | `Get-FathomDenial`, `Get-FathomUserUsage`, `Get-FathomActivity` | Operator | Denials, one user's history, recent log events |
 | `Get-FathomDirectoryObject`, `Get-FathomDirectoryHistory` | Operator | What Active Directory says about users or hosts, now and over time |
