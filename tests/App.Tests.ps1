@@ -255,6 +255,19 @@ FROM generate_series(1, 30) f, generate_series(1, 12) s
         (@(Get-Chart $one)).id | Should -Be 'server-usage-FEATURE_01'
     }
 
+    It 'shows the only reading of a server just added as a dot, and more as a line' {
+        $null = Register-FathomServer -ServerId fresh -Name 'Fresh' -LicenseSpec 27000@fresh
+        $seed = 'INSERT INTO usage_samples (server_id, feature, captured_at, licenses_issued, licenses_in_use) VALUES (@id, @feature, @at::timestamp, 10, 4)'
+        $null = Invoke-SqlUpdate -Query $seed -Parameters @{ id = 'fresh'; feature = 'NEW'; at = (Get-Date).AddMinutes(-1).ToString('s') }
+        $null = Invoke-SqlUpdate -Query $seed -Parameters @{ id = 'fresh'; feature = 'OLDER'; at = (Get-Date).AddMinutes(-1).ToString('s') }
+        $null = Invoke-SqlUpdate -Query $seed -Parameters @{ id = 'fresh'; feature = 'OLDER'; at = (Get-Date).AddHours(-3).ToString('s') }
+
+        $charts = Get-TestNode (Invoke-TestPage -Page Server -Role $reader -Query @{ id = 'fresh'; days = '1' }) |
+            Where-Object { $_ -is [System.Collections.IDictionary] -and $_.type -eq 'ud-chartjs' }
+        ($charts | Where-Object id -EQ 'server-usage-NEW').options.elements.point.radius | Should -BeGreaterThan 0
+        ($charts | Where-Object id -EQ 'server-usage-OLDER').options.elements.point.radius | Should -Be 0
+    }
+
     It 'falls back to 7 days for a range that is not offered' {
         $buttons = Get-TestNode (Invoke-TestPage -Page Server -Role $reader -Query @{ days = '100000' }) |
             Where-Object { $_ -is [System.Collections.IDictionary] -and $_.type -eq 'mu-button' -and $_.variant -eq 'contained' }
